@@ -123,7 +123,7 @@ aws-rag-project/
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/aws-rag-project.git
+git clone https://github.com/micronwave/aws-rag-project.git
 cd aws-rag-project
 
 # Set up Python environment
