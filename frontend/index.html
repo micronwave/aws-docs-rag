@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Documentation Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #1a1d27;
+            border-bottom: 1px solid #2a2d3a;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header .logo {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #ff9900, #ff6600);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 18px;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        header .subtitle {
+            font-size: 12px;
+            color: #888;
+            margin-left: auto;
+        }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 16px 20px;
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+
+        .message.user {
+            background: #2563eb;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+            margin-right: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            background: #1e2130;
+            border: 1px solid #2a2d3a;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.assistant .answer { white-space: pre-wrap; }
+
+        .sources {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #2a2d3a;
+            font-size: 13px;
+            color: #888;
+        }
+
+        .sources a {
+            color: #ff9900;
+            text-decoration: none;
+            word-break: break-all;
+        }
+
+        .sources a:hover { text-decoration: underline; }
+
+        .message.error {
+            background: #2d1b1b;
+            border: 1px solid #5c2626;
+            color: #ff6b6b;
+        }
+
+        .message.loading {
+            background: #1e2130;
+            border: 1px solid #2a2d3a;
+            color: #888;
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
+
+        #welcome {
+            max-width: 600px;
+            margin: auto;
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        #welcome h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        #welcome p {
+            color: #888;
+            margin-bottom: 24px;
+        }
+
+        .example-questions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .example-btn {
+            background: #1e2130;
+            border: 1px solid #2a2d3a;
+            color: #e0e0e0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .example-btn:hover {
+            border-color: #ff9900;
+        }
+
+        #input-area {
+            background: #1a1d27;
+            border-top: 1px solid #2a2d3a;
+            padding: 16px 24px;
+        }
+
+        #input-area form {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
+        }
+
+        #input-area input {
+            flex: 1;
+            background: #0f1117;
+            border: 1px solid #2a2d3a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #e0e0e0;
+            font-size: 15px;
+            outline: none;
+        }
+
+        #input-area input:focus { border-color: #ff9900; }
+
+        #input-area button {
+            background: linear-gradient(135deg, #ff9900, #ff6600);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        #input-area button:hover { opacity: 0.9; }
+        #input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">A</div>
+        <h1>AWS Documentation Assistant</h1>
+        <span class="subtitle">Powered by RAG + Claude 3.5 Sonnet</span>
+    </header>
+
+    <div id="chat-container">
+        <div id="welcome">
+            <h2>Ask anything about AWS</h2>
+            <p>This assistant searches real AWS documentation and uses Claude to answer your questions.</p>
+            <div class="example-questions">
+                <button class="example-btn" onclick="askQuestion('How do I create an S3 bucket policy?')">
+                    How do I create an S3 bucket policy?
+                </button>
+                <button class="example-btn" onclick="askQuestion('What are Lambda execution roles?')">
+                    What are Lambda execution roles?
+                </button>
+                <button class="example-btn" onclick="askQuestion('How do I set up a VPC with public and private subnets?')">
+                    How do I set up a VPC with public and private subnets?
+                </button>
+                <button class="example-btn" onclick="askQuestion('What is DynamoDB and when should I use it?')">
+                    What is DynamoDB and when should I use it?
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="input-area">
+        <form onsubmit="handleSubmit(event)">
+            <input type="text" id="question-input" placeholder="Ask a question about AWS..." autocomplete="off">
+            <button type="submit" id="submit-btn">Ask</button>
+        </form>
+    </div>
+
+    <script>
+        // ──────────────────────────────────────────────────────────────
+        // CONFIGURATION — Replace this URL after running 07_deploy_api_gateway.py
+        // ──────────────────────────────────────────────────────────────
+        const API_ENDPOINT = "%%API_ENDPOINT%%";
+        // ──────────────────────────────────────────────────────────────
+
+        const chatContainer = document.getElementById('chat-container');
+        const questionInput = document.getElementById('question-input');
+        const submitBtn = document.getElementById('submit-btn');
+        let hasAsked = false;
+
+        function askQuestion(text) {
+            questionInput.value = text;
+            handleSubmit(new Event('submit'));
+        }
+
+        function addMessage(type, content) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = content;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return div;
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const question = questionInput.value.trim();
+            if (!question) return;
+
+            // Hide welcome on first question
+            if (!hasAsked) {
+                document.getElementById('welcome').style.display = 'none';
+                hasAsked = true;
+            }
+
+            // Show user message
+            addMessage('user', question);
+            questionInput.value = '';
+
+            // Show loading
+            submitBtn.disabled = true;
+            const loadingMsg = addMessage('loading', '<span class="loading-dots">Searching docs and generating answer</span>');
+
+            try {
+                const resp = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question }),
+                });
+
+                const data = await resp.json();
+                loadingMsg.remove();
+
+                if (data.error) {
+                    addMessage('error', `Error: ${data.error}`);
+                    return;
+                }
+
+                // Build sources HTML
+                let sourcesHtml = '';
+                if (data.sources && data.sources.length > 0) {
+                    const uniqueUrls = [...new Set(data.sources.map(s => s.url))];
+                    sourcesHtml = '<div class="sources"><strong>Sources:</strong><br>' +
+                        uniqueUrls.map((url, i) => `${i+1}. <a href="${url}" target="_blank">${url}</a>`).join('<br>') +
+                        '</div>';
+                }
+
+                addMessage('assistant', `<div class="answer">${data.answer}</div>${sourcesHtml}`);
+
+            } catch (err) {
+                loadingMsg.remove();
+                addMessage('error', `Network error: ${err.message}. Check that the API endpoint is configured.`);
+            } finally {
+                submitBtn.disabled = false;
+                questionInput.focus();
+            }
+        }
+    </script>
+</body>
+</html>

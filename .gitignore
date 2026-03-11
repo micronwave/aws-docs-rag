@@ -1,0 +1,30 @@
+# Virtual environment
+venv/
+
+# Local data (embeddings are large and contain vectors)
+local-data/
+
+# Environment files with secrets
+set_env.local.sh
+set_env.ps1
+scoped-policy.json
+
+# API endpoint (contains your specific URL)
+api_endpoint.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Lambda build artifacts
+/tmp/lambda-build/
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
