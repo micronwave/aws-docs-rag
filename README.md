@@ -1,6 +1,6 @@
 # AWS Documentation RAG System
 
-A Retrieval Augmented Generation (RAG) system that answers questions about AWS services by searching real AWS documentation and generating grounded responses using Claude.
+A Retrieval Augmented Generation (RAG) system that answers questions about AWS services by searching real AWS documentation and generates responses using Claude.
 
 **Live demo:** [https://d3d0zch3u8ca61.cloudfront.net](https://d3d0zch3u8ca61.cloudfront.net)
 
@@ -10,13 +10,7 @@ A Retrieval Augmented Generation (RAG) system that answers questions about AWS s
 
 Ask a question about AWS → the system searches through indexed AWS documentation → retrieves the most relevant sections → sends them to Claude → returns an answer grounded in real documentation with source links.
 
-**Example:**
-> **Q:** "How do I create an S3 bucket policy?"
->
-> **A:** Based on the S3 documentation, you can create a bucket policy by navigating to the S3 console, selecting your bucket, clicking the Permissions tab...
-> *Sources: docs.aws.amazon.com/AmazonS3/latest/userguide/...*
-
-No hallucination — every answer is backed by retrieved documentation.
+Every answer is backed by retrieved documentation.
 
 ---
 
@@ -24,15 +18,14 @@ No hallucination — every answer is backed by retrieved documentation.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                   INGESTION (one-time)                        │
+│                   INGESTION (one-time)                       │
 │                                                              │
-│  AWS Docs → Scrape & Clean → Chunk → Embed (Titan v2) →     │
-│             Upload to S3      ↓                              │
-│                          Upload to Pinecone                  │
+│    AWS Docs → Scrape & Clean → Chunk → Embed (Titan v2) →    |                               
+│                Upload to S3 → Upload to Pinecone             │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│                   QUERY (per question)                        │
+│                   QUERY (per question)                       │
 │                                                              │
 │  User → CloudFront → API Gateway → Lambda                    │
 │                                      ├─ Embed question       │
@@ -55,12 +48,6 @@ No hallucination — every answer is backed by retrieved documentation.
 | **Storage** | Amazon S3 |
 | **Monitoring** | Amazon CloudWatch |
 | **Language** | Python 3.11 |
-
-### Why These Choices
-
-- **Pinecone over OpenSearch Serverless** — OpenSearch Serverless has a ~$700/month minimum. Pinecone free tier costs $0 for up to 100K vectors. Same search quality.
-- **Lambda over ECS** — Pay-per-invocation, zero cost at idle. Free tier covers 1M requests/month.
-- **Bedrock over direct API** — Everything stays in AWS. No external API keys for the LLM. Unified billing.
 
 ---
 
@@ -89,8 +76,6 @@ aws-rag-project/
 ```
 
 ---
-
-## How It Works
 
 ### Ingestion Pipeline (run once)
 
@@ -152,9 +137,6 @@ python scripts/05_test_rag_local.py "How do I create an S3 bucket?"
 python scripts/06_deploy_lambda.py
 python scripts/07_deploy_api_gateway.py
 python scripts/08_deploy_frontend.py
-```
-
-See [GUIDE.md](GUIDE.md) for the complete step-by-step walkthrough with every CLI command.
 
 ---
 
@@ -196,7 +178,3 @@ Compared to ~$700+/month if using OpenSearch Serverless as the vector database.
 | User authentication | Add Amazon Cognito |
 
 ---
-
-## Built With
-
-This project was built as a hands-on cloud engineering portfolio project to demonstrate working knowledge of AWS serverless architecture, AI/ML integration, and infrastructure deployment via CLI.
