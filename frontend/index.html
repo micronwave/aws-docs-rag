@@ -260,10 +260,14 @@
             handleSubmit(new Event('submit'));
         }
 
-        function addMessage(type, content) {
+        function addMessage(type, content, isHtml = false) {
             const div = document.createElement('div');
             div.className = `message ${type}`;
-            div.innerHTML = content;
+            if (isHtml) {
+                div.innerHTML = content;
+            } else {
+                div.textContent = content;
+            }
             chatContainer.appendChild(div);
             chatContainer.scrollTop = chatContainer.scrollHeight;
             return div;
@@ -286,7 +290,7 @@
 
             // Show loading
             submitBtn.disabled = true;
-            const loadingMsg = addMessage('loading', '<span class="loading-dots">Searching docs and generating answer</span>');
+            const loadingMsg = addMessage('loading', '<span class="loading-dots">Searching docs and generating answer</span>', true);
 
             try {
                 const resp = await fetch(API_ENDPOINT, {
@@ -306,16 +310,41 @@
                     return;
                 }
 
-                // Build sources HTML
-                let sourcesHtml = '';
+                // Build assistant message safely
+                const msgDiv = addMessage('assistant', '', true);
+                const answerDiv = document.createElement('div');
+                answerDiv.className = 'answer';
+                answerDiv.textContent = data.answer;
+                msgDiv.appendChild(answerDiv);
+
                 if (data.sources && data.sources.length > 0) {
                     const uniqueUrls = [...new Set(data.sources.map(s => s.url))];
-                    sourcesHtml = '<div class="sources"><strong>Sources:</strong><br>' +
-                        uniqueUrls.map((url, i) => `${i+1}. <a href="${url}" target="_blank">${url}</a>`).join('<br>') +
-                        '</div>';
-                }
+                    const sourcesDiv = document.createElement('div');
+                    sourcesDiv.className = 'sources';
+                    const strong = document.createElement('strong');
+                    strong.textContent = 'Sources:';
+                    sourcesDiv.appendChild(strong);
+                    sourcesDiv.appendChild(document.createElement('br'));
 
-                addMessage('assistant', `<div class="answer">${data.answer}</div>${sourcesHtml}`);
+                    uniqueUrls.forEach((url, i) => {
+                        if (i > 0) sourcesDiv.appendChild(document.createElement('br'));
+                        const text = document.createTextNode(`${i + 1}. `);
+                        sourcesDiv.appendChild(text);
+                        const a = document.createElement('a');
+                        // Only allow http/https URLs
+                        if (url.startsWith('https://') || url.startsWith('http://')) {
+                            a.href = url;
+                        } else {
+                            a.href = '#';
+                        }
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        a.textContent = url;
+                        sourcesDiv.appendChild(a);
+                    });
+
+                    msgDiv.appendChild(sourcesDiv);
+                }
 
             } catch (err) {
                 loadingMsg.remove();
