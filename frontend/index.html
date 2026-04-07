@@ -318,32 +318,38 @@
                 msgDiv.appendChild(answerDiv);
 
                 if (data.sources && data.sources.length > 0) {
-                    const uniqueUrls = [...new Set(data.sources.map(s => s.url))];
-                    const sourcesDiv = document.createElement('div');
-                    sourcesDiv.className = 'sources';
-                    const strong = document.createElement('strong');
-                    strong.textContent = 'Sources:';
-                    sourcesDiv.appendChild(strong);
-                    sourcesDiv.appendChild(document.createElement('br'));
+                    const uniqueUrls = [...new Set(data.sources.map(s => s.url))]
+                        .filter(url => url && typeof url === 'string' && url.trim() !== '');
+                    if (uniqueUrls.length > 0) {
+                        const sourcesDiv = document.createElement('div');
+                        sourcesDiv.className = 'sources';
+                        const strong = document.createElement('strong');
+                        strong.textContent = 'Sources:';
+                        sourcesDiv.appendChild(strong);
+                        sourcesDiv.appendChild(document.createElement('br'));
 
-                    uniqueUrls.forEach((url, i) => {
-                        if (i > 0) sourcesDiv.appendChild(document.createElement('br'));
-                        const text = document.createTextNode(`${i + 1}. `);
-                        sourcesDiv.appendChild(text);
-                        const a = document.createElement('a');
-                        // Only allow http/https URLs
-                        if (url.startsWith('https://') || url.startsWith('http://')) {
-                            a.href = url;
-                        } else {
-                            a.href = '#';
-                        }
-                        a.target = '_blank';
-                        a.rel = 'noopener noreferrer';
-                        a.textContent = url;
-                        sourcesDiv.appendChild(a);
-                    });
+                        uniqueUrls.forEach((url, i) => {
+                            if (i > 0) sourcesDiv.appendChild(document.createElement('br'));
+                            const text = document.createTextNode(`${i + 1}. `);
+                            sourcesDiv.appendChild(text);
+                            // Only render as a clickable link for valid http/https URLs
+                            const isValidUrl = /^https?:\/\/.+/.test(url);
+                            if (isValidUrl) {
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.target = '_blank';
+                                a.rel = 'noopener noreferrer';
+                                a.textContent = url;
+                                sourcesDiv.appendChild(a);
+                            } else {
+                                const span = document.createElement('span');
+                                span.textContent = url;
+                                sourcesDiv.appendChild(span);
+                            }
+                        });
 
-                    msgDiv.appendChild(sourcesDiv);
+                        msgDiv.appendChild(sourcesDiv);
+                    }
                 }
 
             } catch (err) {

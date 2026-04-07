@@ -47,30 +47,17 @@ def create_frontend_bucket() -> None:
         },
     )
 
-# Disable block public access (required for public bucket policy)
+    # Block all public access — only CloudFront OAC can read
     s3.put_public_access_block(
         Bucket=FRONTEND_BUCKET,
         PublicAccessBlockConfiguration={
-            "BlockPublicAcls": False,
-            "IgnorePublicAcls": False,
-            "BlockPublicPolicy": False,
-            "RestrictPublicBuckets": False,
+            "BlockPublicAcls": True,
+            "IgnorePublicAcls": True,
+            "BlockPublicPolicy": True,
+            "RestrictPublicBuckets": True,
         },
     )
-    print(f"  ✓ Bucket configured for static hosting")
-
-    # Set bucket policy for public read (CloudFront OAC is better but more complex)
-    policy = json.dumps({
-        "Version": "2012-10-17",
-        "Statement": [{
-            "Sid": "PublicRead",
-            "Effect": "Allow",
-            "Principal": "*",
-            "Action": "s3:GetObject",
-            "Resource": f"arn:aws:s3:::{FRONTEND_BUCKET}/*",
-        }],
-    })
-    s3.put_bucket_policy(Bucket=FRONTEND_BUCKET, Policy=policy)
+    print(f"  Public access blocked (CloudFront OAC will be used)")
 
 
 def upload_frontend(api_endpoint: str) -> None:
@@ -102,21 +89,82 @@ def upload_frontend(api_endpoint: str) -> None:
     print(f"  ✓ Uploaded index.html to s3://{FRONTEND_BUCKET}/")
 
 
-def create_cloudfront_distribution() -> str:
-    """Create a CloudFront distribution pointing to the S3 website."""
-    # Check if distribution already exists for this bucket
-    origin_domain = f"{FRONTEND_BUCKET}.s3-website-{REGION}.amazonaws.com"
+def get_or_create_oac() -> str:
+    """Create a CloudFront Origin Access Control for S3."""
+    oac_name = "aws-rag-frontend-oac"
 
+    # Check existing OACs
+    try:
+        oacs = cf.list_origin_access_controls()
+        for item in oacs.get("OriginAccessControlList", {}).get("Items", []):
+            if item["Name"] == oac_name:
+                print(f"  OAC already exists: {item['Id']}")
+                return item["Id"]
+    except Exception:
+        pass
+
+    resp = cf.create_origin_access_control(
+        OriginAccessControlConfig={
+            "Name": oac_name,
+            "Description": "OAC for RAG frontend S3 bucket",
+            "SigningProtocol": "sigv4",
+            "SigningBehavior": "always",
+            "OriginAccessControlOriginType": "s3",
+        }
+    )
+    oac_id = resp["OriginAccessControl"]["Id"]
+    print(f"  Created OAC: {oac_id}")
+    return oac_id
+
+
+def create_cloudfront_distribution() -> tuple[str, str]:
+    """Create or update a CloudFront distribution with OAC for S3.
+
+    Returns (cloudfront_url, distribution_arn).
+    """
+    s3_origin_domain = f"{FRONTEND_BUCKET}.s3.{REGION}.amazonaws.com"
+    oac_id = get_or_create_oac()
+
+    # Check if distribution already exists for this bucket
     paginator = cf.get_paginator("list_distributions")
     for page in paginator.paginate():
         dist_list = page.get("DistributionList", {})
         for dist in dist_list.get("Items", []):
             for origin in dist["Origins"]["Items"]:
                 if FRONTEND_BUCKET in origin.get("DomainName", ""):
+                    dist_id = dist["Id"]
+                    dist_arn = dist["ARN"]
                     url = f"https://{dist['DomainName']}"
-                    print(f"  CloudFront distribution already exists: {url}")
-                    return url
 
+                    # Already using OAC — nothing to do
+                    if origin.get("S3OriginConfig") is not None:
+                        print(f"  Distribution already using OAC: {url}")
+                        return url, dist_arn
+
+                    # Existing distribution still on CustomOriginConfig — update it
+                    print(f"  Updating distribution {dist_id} to use OAC...")
+                    config_resp = cf.get_distribution_config(Id=dist_id)
+                    dist_config = config_resp["DistributionConfig"]
+                    etag = config_resp["ETag"]
+
+                    # Swap origin to S3OriginConfig + OAC
+                    origin_item = dist_config["Origins"]["Items"][0]
+                    origin_item["DomainName"] = s3_origin_domain
+                    origin_item.pop("CustomOriginConfig", None)
+                    origin_item["S3OriginConfig"] = {
+                        "OriginAccessIdentity": "",  # Empty for OAC (not OAI)
+                    }
+                    origin_item["OriginAccessControlId"] = oac_id
+
+                    cf.update_distribution(
+                        Id=dist_id,
+                        DistributionConfig=dist_config,
+                        IfMatch=etag,
+                    )
+                    print(f"  Distribution updated: {dist_id}")
+                    return url, dist_arn
+
+    # No existing distribution — create a new one
     print("  Creating CloudFront distribution...")
     caller_ref = str(int(time.time()))
 
@@ -141,12 +189,11 @@ def create_cloudfront_distribution() -> str:
                 "Quantity": 1,
                 "Items": [{
                     "Id": "s3-frontend",
-                    "DomainName": origin_domain,
-                    "CustomOriginConfig": {
-                        "HTTPPort": 80,
-                        "HTTPSPort": 443,
-                        "OriginProtocolPolicy": "http-only",
+                    "DomainName": s3_origin_domain,
+                    "S3OriginConfig": {
+                        "OriginAccessIdentity": "",  # Empty for OAC (not OAI)
                     },
+                    "OriginAccessControlId": oac_id,
                 }],
             },
             "Enabled": True,
@@ -157,11 +204,12 @@ def create_cloudfront_distribution() -> str:
 
     domain = resp["Distribution"]["DomainName"]
     dist_id = resp["Distribution"]["Id"]
+    dist_arn = resp["Distribution"]["ARN"]
     url = f"https://{domain}"
 
-    print(f"  ✓ Distribution created: {dist_id}")
-    print(f"  ⏳ CloudFront takes 5-15 minutes to fully deploy.")
-    return url
+    print(f"  Distribution created: {dist_id}")
+    print(f"  CloudFront takes 5-15 minutes to fully deploy.")
+    return url, dist_arn
 
 
 def main():
@@ -192,18 +240,31 @@ def main():
 
     # CloudFront
     print("\n[3/3] Setting up CloudFront...")
-    cloudfront_url = create_cloudfront_distribution()
+    cloudfront_url, dist_arn = create_cloudfront_distribution()
 
-    # Also show direct S3 website URL (works immediately)
-    s3_url = f"http://{FRONTEND_BUCKET}.s3-website-{REGION}.amazonaws.com"
+    # Set bucket policy — allows only this CloudFront distribution via OAC
+    oac_policy = json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Sid": "AllowCloudFrontOAC",
+            "Effect": "Allow",
+            "Principal": {"Service": "cloudfront.amazonaws.com"},
+            "Action": "s3:GetObject",
+            "Resource": f"arn:aws:s3:::{FRONTEND_BUCKET}/*",
+            "Condition": {
+                "StringEquals": {
+                    "AWS:SourceArn": dist_arn
+                }
+            }
+        }]
+    })
+    s3.put_bucket_policy(Bucket=FRONTEND_BUCKET, Policy=oac_policy)
+    print(f"  Bucket policy set for CloudFront OAC")
 
     print(f"\n{'='*60}")
-    print(f"  ✓ Frontend deployed!")
+    print(f"  Frontend deployed!")
     print(f"")
-    print(f"  S3 Website (available now):")
-    print(f"    {s3_url}")
-    print(f"")
-    print(f"  CloudFront (HTTPS, available in 5-15 min):")
+    print(f"  CloudFront (HTTPS):")
     print(f"    {cloudfront_url}")
     print(f"{'='*60}\n")
 
