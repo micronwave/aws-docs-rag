@@ -58,6 +58,7 @@ def process_chunks(chunks: list[dict]) -> list[dict]:
 
     embedded = []
     failed = 0
+    failed_chunks = []
 
     for i, chunk in enumerate(chunks):
         try:
@@ -71,10 +72,18 @@ def process_chunks(chunks: list[dict]) -> list[dict]:
 
         except Exception as e:
             failed += 1
+            failed_chunks.append(chunk["chunk_id"])
             print(f"  ✗ ERROR chunk {chunk['chunk_id']}: {e}")
             if "ThrottlingException" in str(e):
                 print("    Throttled — waiting 10s...")
                 time.sleep(10)
+
+    if failed_chunks:
+        failed_path = "local-data/failed_chunks.json"
+        os.makedirs("local-data", exist_ok=True)
+        with open(failed_path, "w") as f:
+            json.dump(failed_chunks, f, indent=2)
+        print(f"  Failed chunk IDs saved to {failed_path}")
 
     print(f"\n  ✓ Done: {len(embedded)} succeeded, {failed} failed")
     return embedded

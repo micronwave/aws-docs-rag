@@ -77,10 +77,10 @@ def upload_to_pinecone(pc: Pinecone, chunks: list[dict]) -> None:
     total = len(chunks)
     print(f"\nUploading {total} vectors to Pinecone index '{INDEX_NAME}'...")
 
+    failed_batches = []
     for bn in range(0, total, BATCH_SIZE):
         batch = chunks[bn:bn + BATCH_SIZE]
 
-        # Pinecone upsert format: list of (id, vector, metadata)
         vectors = []
         for chunk in batch:
             vectors.append({
@@ -90,12 +90,26 @@ def upload_to_pinecone(pc: Pinecone, chunks: list[dict]) -> None:
                     "service": chunk["service"],
                     "source_url": chunk["source_url"],
                     "chunk_index": chunk["chunk_index"],
-                    "content": chunk["content"],  # store text in metadata for retrieval
+                    "content": chunk["content"],
                 },
             })
 
-        index.upsert(vectors=vectors)
-        print(f"  Uploaded batch {bn // BATCH_SIZE} ({len(batch)} vectors)")
+        try:
+            index.upsert(vectors=vectors)
+            print(f"  Uploaded batch {bn // BATCH_SIZE} ({len(batch)} vectors)")
+        except Exception as e:
+            batch_num = bn // BATCH_SIZE
+            failed_batches.append(batch_num)
+            print(f"  ✗ Batch {batch_num} failed: {e}")
+
+    if failed_batches:
+        print(f"\n  WARNING: {len(failed_batches)} batches failed: {failed_batches}")
+        print(f"  Re-run the script to retry (upsert is idempotent).")
+        failed_path = "local-data/failed_batches.json"
+        os.makedirs("local-data", exist_ok=True)
+        with open(failed_path, "w") as f:
+            json.dump(failed_batches, f, indent=2)
+        print(f"  Failed batch numbers saved to {failed_path}")
 
     # Verify
     time.sleep(3)  # give Pinecone a moment to index

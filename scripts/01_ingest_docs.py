@@ -34,16 +34,22 @@ REQUEST_DELAY = 1            # seconds between HTTP requests
 s3_client = boto3.client("s3", region_name=REGION)
 
 
-def get_page(url: str) -> str | None:
-    """Download a single page. Returns HTML or None on failure."""
-    try:
-        headers = {"User-Agent": "AWS-RAG-Project-Educational/1.0"}
-        resp = requests.get(url, headers=headers, timeout=15)
-        resp.raise_for_status()
-        return resp.text
-    except requests.RequestException as e:
-        print(f"  ✗ Failed: {url} — {e}")
-        return None
+def get_page(url: str, max_retries: int = 3) -> str | None:
+    """Download a single page with retries. Returns HTML or None on failure."""
+    headers = {"User-Agent": "AWS-RAG-Project-Educational/1.0"}
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, headers=headers, timeout=15)
+            resp.raise_for_status()
+            return resp.text
+        except requests.RequestException as e:
+            if attempt < max_retries - 1:
+                wait = 2 ** attempt  # 1s, 2s
+                print(f"  ✗ Attempt {attempt + 1} failed: {url} — {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"  ✗ Failed after {max_retries} attempts: {url} — {e}")
+                return None
 
 
 def extract_links(html: str, base_url: str, service_path: str) -> list[str]:
