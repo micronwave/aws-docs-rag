@@ -28,3 +28,10 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Claude Code local settings
+.claude/
+
+# Security audit working files
+sec_fix*.md
+sec_workflow.md

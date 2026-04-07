@@ -7,6 +7,7 @@ sends them to Claude via Bedrock, and returns the answer.
 
 import os
 import json
+import traceback
 import boto3
 from pinecone import Pinecone
 
@@ -123,6 +124,18 @@ def lambda_handler(event, context):
                 "body": json.dumps({"error": "No question provided"}),
             }
 
+        if len(question) > 1000:
+            return {
+                "statusCode": 400,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS",
+                },
+                "body": json.dumps({"error": "Question too long. Maximum 1000 characters."}),
+            }
+
         # RAG pipeline
         query_vec = embed_query(question)
         chunks = search_pinecone(query_vec)
@@ -151,7 +164,7 @@ def lambda_handler(event, context):
         }
 
     except Exception as e:
-        print(f"ERROR: {e}")
+        print(f"ERROR: {traceback.format_exc()}")
         return {
             "statusCode": 500,
             "headers": {
@@ -160,5 +173,5 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Headers": "Content-Type",
                 "Access-Control-Allow-Methods": "POST,OPTIONS",
             },
-            "body": json.dumps({"error": str(e)}),
+            "body": json.dumps({"error": "Internal server error"}),
         }
