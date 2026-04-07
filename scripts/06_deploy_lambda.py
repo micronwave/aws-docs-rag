@@ -195,10 +195,10 @@ def package_lambda() -> str:
                 zf.write(filepath, arcname)
 
     size_mb = os.path.getsize(zip_path) / 1024 / 1024
-    print(f"  ✓ Package size: {size_mb:.1f} MB")
+    print(f"  [OK] Package size: {size_mb:.1f} MB")
 
     if size_mb > 50:
-        print("  ⚠ Warning: Package > 50MB. Consider using a Lambda Layer instead.")
+        print("  [!] Warning: Package > 50MB. Consider using a Lambda Layer instead.")
 
     return zip_path
 
@@ -209,7 +209,6 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
         zip_bytes = f.read()
 
     env_vars = {
-        "AWS_DEFAULT_REGION": REGION,
         "PINECONE_API_KEY": PINECONE_API_KEY,
         "PINECONE_INDEX_NAME": INDEX_NAME,
         "EMBEDDING_MODEL_ID": EMBEDDING_MODEL_ID,
@@ -240,7 +239,7 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
 
         resp = lambda_client.get_function(FunctionName=FUNCTION_NAME)
         func_arn = resp["Configuration"]["FunctionArn"]
-        print(f"  ✓ Updated: {func_arn}")
+        print(f"  [OK] Updated: {func_arn}")
 
     except ClientError as e:
         if "ResourceNotFoundException" in str(e):
@@ -263,7 +262,7 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
             print("  Waiting for function to become active...")
             waiter = lambda_client.get_waiter("function_active_v2")
             waiter.wait(FunctionName=FUNCTION_NAME)
-            print(f"  ✓ Created: {func_arn}")
+            print(f"  [OK] Created: {func_arn}")
         else:
             raise
 
@@ -285,7 +284,7 @@ def main():
     func_arn = deploy_function(role_arn, zip_path)
 
     print(f"\n{'='*60}")
-    print(f"  ✓ Lambda deployed successfully!")
+    print(f"  [OK] Lambda deployed successfully!")
     print(f"  Function: {FUNCTION_NAME}")
     print(f"  ARN:      {func_arn}")
     print(f"  Region:   {REGION}")

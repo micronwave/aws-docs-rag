@@ -12,7 +12,7 @@ import boto3
 from pinecone import Pinecone
 
 # ─── Configuration (set as Lambda environment variables) ──────────────
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
+REGION = os.environ.get("AWS_REGION", "us-east-2")
 PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "aws-rag-index")
 EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")

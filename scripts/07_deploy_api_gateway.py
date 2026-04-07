@@ -42,7 +42,7 @@ def get_or_create_api() -> str:
         endpointConfiguration={"types": ["REGIONAL"]},
     )
     api_id = resp["id"]
-    print(f"  ✓ Created API: {api_id}")
+    print(f"  [OK] Created API: {api_id}")
     return api_id
 
 
@@ -68,7 +68,7 @@ def get_or_create_resource(api_id: str, parent_id: str, path_part: str) -> str:
         parentId=parent_id,
         pathPart=path_part,
     )
-    print(f"  ✓ Created resource /{path_part}: {resp['id']}")
+    print(f"  [OK] Created resource /{path_part}: {resp['id']}")
     return resp["id"]
 
 
@@ -121,9 +121,9 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
             },
             responseTemplates={"application/json": ""},
         )
-        print(f"  ✓ OPTIONS method configured (CORS)")
+        print(f"  [OK] OPTIONS method configured (CORS)")
     else:
-        # POST method → Lambda proxy integration
+        # POST method -> Lambda proxy integration
         lambda_uri = (
             f"arn:aws:apigateway:{REGION}:lambda:path"
             f"/2015-03-31/functions/{lambda_arn}/invocations"
@@ -136,7 +136,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
             integrationHttpMethod="POST",
             uri=lambda_uri,
         )
-        print(f"  ✓ POST method configured → Lambda proxy")
+        print(f"  [OK] POST method configured -> Lambda proxy")
 
 
 def add_lambda_permission(api_id: str, lambda_arn: str):
@@ -160,7 +160,7 @@ def add_lambda_permission(api_id: str, lambda_arn: str):
         Principal="apigateway.amazonaws.com",
         SourceArn=source_arn,
     )
-    print(f"  ✓ Lambda invoke permission granted to API Gateway")
+    print(f"  [OK] Lambda invoke permission granted to API Gateway")
 
 
 def deploy_api(api_id: str) -> str:
@@ -172,7 +172,7 @@ def deploy_api(api_id: str) -> str:
     )
 
     invoke_url = f"https://{api_id}.execute-api.{REGION}.amazonaws.com/{STAGE_NAME}"
-    print(f"  ✓ Deployed to stage '{STAGE_NAME}'")
+    print(f"  [OK] Deployed to stage '{STAGE_NAME}'")
     return invoke_url
 
 
@@ -276,7 +276,7 @@ def main():
     print(f"  API key saved to api_key.txt")
 
     print(f"\n{'='*60}")
-    print(f"  ✓ API Gateway deployed successfully!")
+    print(f"  [OK] API Gateway deployed successfully!")
     print(f"  Endpoint: {endpoint}")
     print(f"{'='*60}")
     print(f"\n  Test with curl:")
