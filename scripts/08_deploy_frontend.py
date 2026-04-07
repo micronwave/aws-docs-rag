@@ -7,6 +7,7 @@ Run: python scripts/08_deploy_frontend.py
 """
 
 import os
+import sys
 import json
 import time
 import boto3
@@ -97,9 +98,10 @@ def create_cloudfront_distribution() -> str:
     # Check if distribution already exists for this bucket
     origin_domain = f"{FRONTEND_BUCKET}.s3-website-{REGION}.amazonaws.com"
 
-    dists = cf.list_distributions()
-    if "DistributionList" in dists and "Items" in dists["DistributionList"]:
-        for dist in dists["DistributionList"]["Items"]:
+    paginator = cf.get_paginator("list_distributions")
+    for page in paginator.paginate():
+        dist_list = page.get("DistributionList", {})
+        for dist in dist_list.get("Items", []):
             for origin in dist["Origins"]["Items"]:
                 if FRONTEND_BUCKET in origin.get("DomainName", ""):
                     url = f"https://{dist['DomainName']}"
@@ -158,14 +160,17 @@ def main():
     print(f"  Deploying Frontend")
     print(f"{'='*60}")
 
-    # Read API endpoint
-    if not os.path.exists("api_endpoint.txt"):
-        print("\n  ✗ api_endpoint.txt not found!")
-        print("  Run 07_deploy_api_gateway.py first.")
+    # Read API endpoint from argument or file
+    if len(sys.argv) > 1:
+        api_endpoint = sys.argv[1]
+    elif os.path.exists("api_endpoint.txt"):
+        with open("api_endpoint.txt") as f:
+            api_endpoint = f.read().strip()
+    else:
+        print("\n  ✗ No API endpoint provided!")
+        print("  Usage: python scripts/08_deploy_frontend.py [endpoint_url]")
+        print("  Or run 07_deploy_api_gateway.py first to create api_endpoint.txt")
         return
-
-    with open("api_endpoint.txt") as f:
-        api_endpoint = f.read().strip()
     print(f"\n  API endpoint: {api_endpoint}")
 
     # Create bucket

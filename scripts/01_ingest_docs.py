@@ -12,6 +12,7 @@ import time
 import boto3
 import requests
 from bs4 import BeautifulSoup
+from collections import deque
 from urllib.parse import urljoin, urlparse
 
 # ─── Configuration ────────────────────────────────────────────────────
@@ -104,11 +105,11 @@ def scrape_service(service_name: str, seed_url: str) -> list[dict]:
     service_path = parsed.path.rsplit("/", 1)[0] + "/"
 
     visited = set()
-    queue = [seed_url]
+    queue = deque([seed_url])
     docs = []
 
     while queue and len(docs) < MAX_PAGES_PER_SERVICE:
-        url = queue.pop(0)
+        url = queue.popleft()
         if url in visited:
             continue
         visited.add(url)
@@ -119,7 +120,7 @@ def scrape_service(service_name: str, seed_url: str) -> list[dict]:
             continue
 
         text = clean_html(html)
-        if len(text) < 100:
+        if len(text) < 300:
             print(f"    ↳ skipped (only {len(text)} chars)")
             continue
 

@@ -11,6 +11,7 @@ import json
 import time
 import subprocess
 import shutil
+import tempfile
 import zipfile
 import boto3
 from botocore.exceptions import ClientError
@@ -84,8 +85,8 @@ def package_lambda() -> str:
     Package the Lambda function + dependencies into a ZIP file.
     Installs pinecone-client into a temp directory and bundles it.
     """
-    build_dir = "/tmp/lambda-build"
-    zip_path = "/tmp/lambda-deployment.zip"
+    build_dir = os.path.join(tempfile.gettempdir(), "lambda-build")
+    zip_path = os.path.join(tempfile.gettempdir(), "lambda-deployment.zip")
 
     # Clean up any previous build
     if os.path.exists(build_dir):

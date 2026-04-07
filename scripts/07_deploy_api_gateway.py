@@ -26,12 +26,13 @@ ACCOUNT_ID = sts.get_caller_identity()["Account"]
 
 def get_or_create_api() -> str:
     """Get existing API or create new one. Returns API ID."""
-    # Check if API already exists
-    apis = apigw.get_rest_apis()["items"]
-    for api in apis:
-        if api["name"] == API_NAME:
-            print(f"  API already exists: {api['id']}")
-            return api["id"]
+    # Check if API already exists (paginated)
+    paginator = apigw.get_paginator("get_rest_apis")
+    for page in paginator.paginate():
+        for api in page["items"]:
+            if api["name"] == API_NAME:
+                print(f"  API already exists: {api['id']}")
+                return api["id"]
 
     # Create new API
     print(f"  Creating REST API '{API_NAME}'...")
