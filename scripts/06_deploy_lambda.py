@@ -16,7 +16,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 # ─── Configuration ────────────────────────────────────────────────────
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 FUNCTION_NAME = "aws-rag-query"
 ROLE_NAME = "aws-rag-lambda-role"
 HANDLER = "lambda_handler.lambda_handler"
@@ -26,7 +26,7 @@ MEMORY = 512       # MB
 PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "aws-rag-index")
 EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")
-LLM_MODEL_ID = os.environ.get("LLM_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0")
+LLM_MODEL_ID = os.environ.get("LLM_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
 
 iam = boto3.client("iam", region_name=REGION)
 lambda_client = boto3.client("lambda", region_name=REGION)
@@ -154,7 +154,7 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
         zip_bytes = f.read()
 
     env_vars = {
-        "APP_REGION": REGION,
+        "AWS_DEFAULT_REGION": REGION,
         "PINECONE_API_KEY": PINECONE_API_KEY,
         "PINECONE_INDEX_NAME": INDEX_NAME,
         "EMBEDDING_MODEL_ID": EMBEDDING_MODEL_ID,

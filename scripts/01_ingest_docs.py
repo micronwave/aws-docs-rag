@@ -16,7 +16,7 @@ from urllib.parse import urljoin, urlparse
 
 # ─── Configuration ────────────────────────────────────────────────────
 S3_BUCKET = os.environ["S3_BUCKET_NAME"]
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 
 # Seed URLs — starting pages for each AWS service's user guide
 SEED_URLS = {

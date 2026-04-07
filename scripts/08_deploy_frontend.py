@@ -13,7 +13,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 # ─── Configuration ────────────────────────────────────────────────────
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 ACCOUNT_ID = boto3.client("sts").get_caller_identity()["Account"]
 FRONTEND_BUCKET = f"aws-rag-frontend-{ACCOUNT_ID}"
 

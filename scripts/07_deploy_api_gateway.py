@@ -12,7 +12,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 # ─── Configuration ────────────────────────────────────────────────────
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 FUNCTION_NAME = "aws-rag-query"
 API_NAME = "aws-rag-api"
 STAGE_NAME = "prod"

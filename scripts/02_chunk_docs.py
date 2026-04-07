@@ -13,7 +13,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # ─── Configuration ────────────────────────────────────────────────────
 S3_BUCKET = os.environ["S3_BUCKET_NAME"]
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 
 CHUNK_SIZE = 1000     # characters per chunk
 CHUNK_OVERLAP = 200   # overlap between consecutive chunks

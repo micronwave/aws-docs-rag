@@ -7,8 +7,8 @@
 #   2. Run: source set_env.sh
 # ============================================================
 
-# AWS region — us-east-1 has best Bedrock model availability
-export AWS_DEFAULT_REGION=us-east-1
+# AWS region — us-east-2 matches deployed infrastructure
+export AWS_DEFAULT_REGION=us-east-2
 
 # S3 bucket — includes your account ID for global uniqueness
 export S3_BUCKET_NAME=aws-rag-docs-$(aws sts get-caller-identity --query Account --output text)
@@ -19,7 +19,7 @@ export PINECONE_INDEX_NAME=aws-rag-index
 
 # Bedrock model IDs
 export EMBEDDING_MODEL_ID=amazon.titan-embed-text-v2:0
-export LLM_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+export LLM_MODEL_ID=us.anthropic.claude-sonnet-4-6
 
 # Print confirmation
 echo "Environment variables set:"

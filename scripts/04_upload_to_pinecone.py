@@ -14,7 +14,7 @@ from pinecone import Pinecone, ServerlessSpec
 
 # ─── Configuration ────────────────────────────────────────────────────
 S3_BUCKET = os.environ["S3_BUCKET_NAME"]
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "aws-rag-index")
 

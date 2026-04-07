@@ -122,7 +122,7 @@ cp set_env.sh set_env.local.sh    # Edit with your Pinecone key + AWS account ID
 source set_env.local.sh
 
 # Create S3 bucket
-aws s3 mb s3://$S3_BUCKET_NAME --region us-east-1
+aws s3 mb s3://$S3_BUCKET_NAME --region us-east-2
 
 # Run the pipeline
 python scripts/01_ingest_docs.py          # ~5 min

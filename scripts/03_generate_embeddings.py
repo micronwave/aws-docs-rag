@@ -13,7 +13,7 @@ import boto3
 
 # ─── Configuration ────────────────────────────────────────────────────
 S3_BUCKET = os.environ["S3_BUCKET_NAME"]
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")
 DELAY = 0.1  # seconds between Bedrock calls; increase if throttled
 
