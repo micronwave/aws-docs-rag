@@ -45,10 +45,10 @@ def get_page(url: str, max_retries: int = 3) -> str | None:
         except requests.RequestException as e:
             if attempt < max_retries - 1:
                 wait = 2 ** attempt  # 1s, 2s
-                print(f"  ✗ Attempt {attempt + 1} failed: {url} — {e}. Retrying in {wait}s...")
+                print(f"  [ERR] Attempt {attempt + 1} failed: {url} -- {e}. Retrying in {wait}s...")
                 time.sleep(wait)
             else:
-                print(f"  ✗ Failed after {max_retries} attempts: {url} — {e}")
+                print(f"  [ERR] Failed after {max_retries} attempts: {url} -- {e}")
                 return None
 
 
@@ -127,7 +127,7 @@ def scrape_service(service_name: str, seed_url: str) -> list[dict]:
 
         text = clean_html(html)
         if len(text) < 300:
-            print(f"    ↳ skipped (only {len(text)} chars)")
+            print(f"    -> skipped (only {len(text)} chars)")
             continue
 
         docs.append({
@@ -143,7 +143,7 @@ def scrape_service(service_name: str, seed_url: str) -> list[dict]:
 
         time.sleep(REQUEST_DELAY)
 
-    print(f"  ✓ Collected {len(docs)} pages for {service_name}")
+    print(f"  [OK] Collected {len(docs)} pages for {service_name}")
     return docs
 
 
@@ -169,7 +169,7 @@ def upload_to_s3(documents: list[dict]) -> None:
         Body=json.dumps(manifest, indent=2),
         ContentType="application/json",
     )
-    print(f"  ✓ Upload complete.")
+    print(f"  [OK] Upload complete.")
     print(f"  Manifest: {json.dumps(manifest, indent=2)}")
 
 
@@ -187,9 +187,9 @@ def main():
         os.makedirs("local-data/raw-docs", exist_ok=True)
         with open("local-data/raw-docs/all_documents.json", "w") as f:
             json.dump(all_docs, f, indent=2)
-        print("  Also saved locally → local-data/raw-docs/all_documents.json")
+        print("  Also saved locally -> local-data/raw-docs/all_documents.json")
     else:
-        print("  ✗ No documents collected. Check internet & URLs.")
+        print("  [ERR] No documents collected. Check internet & URLs.")
 
 
 if __name__ == "__main__":

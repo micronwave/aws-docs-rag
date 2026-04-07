@@ -96,7 +96,7 @@ def upload_chunks_to_s3(chunks: list[dict]) -> None:
         Body=json.dumps(manifest, indent=2),
         ContentType="application/json",
     )
-    print(f"  ✓ Chunk manifest: {json.dumps(manifest, indent=2)}")
+    print(f"  [OK] Chunk manifest: {json.dumps(manifest, indent=2)}")
 
 
 def main():
@@ -116,7 +116,7 @@ def main():
     os.makedirs("local-data/chunks", exist_ok=True)
     with open("local-data/chunks/all_chunks.json", "w") as f:
         json.dump(chunks, f, indent=2)
-    print("  Also saved locally → local-data/chunks/all_chunks.json")
+    print("  Also saved locally -> local-data/chunks/all_chunks.json")
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ def process_chunks(chunks: list[dict]) -> list[dict]:
         except Exception as e:
             failed += 1
             failed_chunks.append(chunk["chunk_id"])
-            print(f"  ✗ ERROR chunk {chunk['chunk_id']}: {e}")
+            print(f"  [ERR] ERROR chunk {chunk['chunk_id']}: {e}")
             if "ThrottlingException" in str(e):
                 print("    Throttled — waiting 10s...")
                 time.sleep(10)
@@ -85,7 +85,7 @@ def process_chunks(chunks: list[dict]) -> list[dict]:
             json.dump(failed_chunks, f, indent=2)
         print(f"  Failed chunk IDs saved to {failed_path}")
 
-    print(f"\n  ✓ Done: {len(embedded)} succeeded, {failed} failed")
+    print(f"\n  [OK] Done: {len(embedded)} succeeded, {failed} failed")
     return embedded
 
 
@@ -114,7 +114,7 @@ def upload_embeddings_to_s3(embedded: list[dict]) -> None:
         Body=json.dumps(manifest, indent=2),
         ContentType="application/json",
     )
-    print(f"  ✓ Manifest: {json.dumps(manifest, indent=2)}")
+    print(f"  [OK] Manifest: {json.dumps(manifest, indent=2)}")
 
 
 def main():
@@ -134,7 +134,7 @@ def main():
     with open("local-data/embeddings/all_embeddings.json", "w") as f:
         json.dump(embedded, f)
     size_mb = os.path.getsize("local-data/embeddings/all_embeddings.json") / 1024 / 1024
-    print(f"  Also saved locally → local-data/embeddings/all_embeddings.json ({size_mb:.1f} MB)")
+    print(f"  Also saved locally -> local-data/embeddings/all_embeddings.json ({size_mb:.1f} MB)")
 
 
 if __name__ == "__main__":

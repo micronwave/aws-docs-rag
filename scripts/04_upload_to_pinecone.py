@@ -100,7 +100,7 @@ def upload_to_pinecone(pc: Pinecone, chunks: list[dict]) -> None:
         except Exception as e:
             batch_num = bn // BATCH_SIZE
             failed_batches.append(batch_num)
-            print(f"  ✗ Batch {batch_num} failed: {e}")
+            print(f"  [ERR] Batch {batch_num} failed: {e}")
 
     if failed_batches:
         print(f"\n  WARNING: {len(failed_batches)} batches failed: {failed_batches}")
@@ -114,7 +114,7 @@ def upload_to_pinecone(pc: Pinecone, chunks: list[dict]) -> None:
     # Verify
     time.sleep(3)  # give Pinecone a moment to index
     stats = index.describe_index_stats()
-    print(f"\n  ✓ Pinecone index stats:")
+    print(f"\n  [OK] Pinecone index stats:")
     print(f"    Total vectors: {stats.total_vector_count}")
     print(f"    Dimension:     {stats.dimension}")
 
@@ -134,7 +134,7 @@ def main():
 
     # Upload
     upload_to_pinecone(pc, chunks)
-    print("\n  ✓ All vectors uploaded. Ready for queries!")
+    print("\n  [OK] All vectors uploaded. Ready for queries!")
 
 
 if __name__ == "__main__":

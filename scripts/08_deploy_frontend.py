@@ -85,8 +85,9 @@ def upload_frontend(api_endpoint: str) -> None:
         Key="index.html",
         Body=html.encode("utf-8"),
         ContentType="text/html",
+        CacheControl="max-age=300, must-revalidate",
     )
-    print(f"  ✓ Uploaded index.html to s3://{FRONTEND_BUCKET}/")
+    print(f"  [OK] Uploaded index.html to s3://{FRONTEND_BUCKET}/")
 
 
 def get_or_create_oac() -> str:
@@ -224,7 +225,7 @@ def main():
         with open("api_endpoint.txt") as f:
             api_endpoint = f.read().strip()
     else:
-        print("\n  ✗ No API endpoint provided!")
+        print("\n  [ERR] No API endpoint provided!")
         print("  Usage: python scripts/08_deploy_frontend.py [endpoint_url]")
         print("  Or run 07_deploy_api_gateway.py first to create api_endpoint.txt")
         return

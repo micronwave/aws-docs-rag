@@ -1,7 +1,7 @@
 """
 05_test_rag_local.py
-Tests the full RAG pipeline locally: embed question → search Pinecone →
-build prompt → call Claude → print answer.
+Tests the full RAG pipeline locally: embed question -> search Pinecone ->
+build prompt -> call Claude -> print answer.
 
 Run: python scripts/05_test_rag_local.py "How do I create an S3 bucket?"
 """
@@ -131,7 +131,7 @@ def main():
     # Step 1: Embed the question
     print("\n[1/4] Generating question embedding...")
     query_vec = embed_query(question)
-    print(f"  ✓ Generated 1024-dim vector")
+    print(f"  [OK] Generated 1024-dim vector")
 
     # Step 2: Search Pinecone
     print(f"\n[2/4] Searching Pinecone (top {TOP_K} results)...")
@@ -142,7 +142,7 @@ def main():
     # Step 3: Build prompt
     print(f"\n[3/4] Building prompt with {len(chunks)} context chunks...")
     prompt = build_prompt(question, chunks)
-    print(f"  ✓ Prompt length: {len(prompt)} characters")
+    print(f"  [OK] Prompt length: {len(prompt)} characters")
 
     # Step 4: Call Claude
     print(f"\n[4/4] Calling Claude 3.5 Sonnet via Bedrock...")
