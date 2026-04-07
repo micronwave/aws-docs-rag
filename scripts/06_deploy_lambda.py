@@ -52,6 +52,43 @@ def create_role() -> str:
         resp = iam.get_role(RoleName=ROLE_NAME)
         role_arn = resp["Role"]["Arn"]
         print(f"  Role already exists: {role_arn}")
+
+        # Attach scoped policy BEFORE detaching the broad one — if the put
+        # fails, the Lambda keeps working with the old policy instead of
+        # losing all Bedrock access.
+        bedrock_policy = json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": "bedrock:InvokeModel",
+                "Resource": [
+                    "arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0",
+                    f"arn:aws:bedrock:*:{ACCOUNT_ID}:inference-profile/us.anthropic.claude-sonnet-4-6",
+                ],
+            }],
+        })
+        scoped_attached = False
+        try:
+            iam.put_role_policy(
+                RoleName=ROLE_NAME,
+                PolicyName="BedrockInvokeOnly",
+                PolicyDocument=bedrock_policy,
+            )
+            scoped_attached = True
+        except ClientError as e:
+            print(f"  WARNING: Could not attach BedrockInvokeOnly: {e}")
+
+        # Only detach the broad policy if the scoped one is confirmed in place
+        if scoped_attached:
+            try:
+                iam.detach_role_policy(
+                    RoleName=ROLE_NAME,
+                    PolicyArn="arn:aws:iam::aws:policy/AmazonBedrockFullAccess",
+                )
+                print(f"  Detached: AmazonBedrockFullAccess (too broad)")
+            except ClientError:
+                pass
+
         return role_arn
     except ClientError:
         pass
@@ -64,14 +101,31 @@ def create_role() -> str:
     )
     role_arn = resp["Role"]["Arn"]
 
-    # Attach policies
-    policies = [
-        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",  # CloudWatch logs
-        "arn:aws:iam::aws:policy/AmazonBedrockFullAccess",                   # Bedrock calls
-    ]
-    for policy_arn in policies:
-        iam.attach_role_policy(RoleName=ROLE_NAME, PolicyArn=policy_arn)
-        print(f"    Attached: {policy_arn.split('/')[-1]}")
+    # Attach CloudWatch logs managed policy
+    iam.attach_role_policy(
+        RoleName=ROLE_NAME,
+        PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+    )
+    print(f"    Attached: AWSLambdaBasicExecutionRole")
+
+    # Attach scoped Bedrock inline policy (InvokeModel only)
+    bedrock_policy = json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Effect": "Allow",
+            "Action": "bedrock:InvokeModel",
+            "Resource": [
+                "arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0",
+                f"arn:aws:bedrock:*:{ACCOUNT_ID}:inference-profile/us.anthropic.claude-sonnet-4-6",
+            ],
+        }],
+    })
+    iam.put_role_policy(
+        RoleName=ROLE_NAME,
+        PolicyName="BedrockInvokeOnly",
+        PolicyDocument=bedrock_policy,
+    )
+    print(f"    Attached: BedrockInvokeOnly (inline)")
 
     # IAM roles need a few seconds to propagate
     print("  Waiting 10s for role to propagate...")
