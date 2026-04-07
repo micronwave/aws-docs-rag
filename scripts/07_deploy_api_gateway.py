@@ -163,6 +163,36 @@ def add_lambda_permission(api_id: str, lambda_arn: str):
     print(f"  [OK] Lambda invoke permission granted to API Gateway")
 
 
+CORS_ORIGIN = "https://d3d0zch3u8ca61.cloudfront.net"
+
+# API Gateway error response types that need CORS headers so the browser
+# can read the error instead of showing a generic "Failed to fetch".
+GATEWAY_ERROR_TYPES = [
+    "MISSING_AUTHENTICATION_TOKEN",  # 403 -- no API key sent
+    "INVALID_API_KEY",               # 403 -- wrong API key
+    "ACCESS_DENIED",                 # 403 -- authorizer denial
+    "QUOTA_EXCEEDED",                # 429 -- usage plan quota exceeded
+    "THROTTLED",                     # 429 -- rate limit exceeded
+    "API_CONFIGURATION_ERROR",       # 500 -- misconfigured integration
+    "DEFAULT_4XX",                   # catch-all for other 4xx
+    "DEFAULT_5XX",                   # catch-all for other 5xx
+]
+
+
+def setup_gateway_responses(api_id: str) -> None:
+    """Add CORS headers to API Gateway-generated error responses."""
+    for response_type in GATEWAY_ERROR_TYPES:
+        apigw.put_gateway_response(
+            restApiId=api_id,
+            responseType=response_type,
+            responseParameters={
+                "gatewayresponse.header.Access-Control-Allow-Origin": f"'{CORS_ORIGIN}'",
+                "gatewayresponse.header.Access-Control-Allow-Headers": "'Content-Type,x-api-key'",
+            },
+        )
+    print(f"  [OK] CORS headers added to {len(GATEWAY_ERROR_TYPES)} gateway error responses")
+
+
 def deploy_api(api_id: str) -> str:
     """Deploy the API to a stage and return the invoke URL."""
     apigw.create_deployment(
@@ -237,37 +267,41 @@ def main():
     print(f"{'='*60}")
 
     # Get Lambda ARN
-    print("\n[1/7] Getting Lambda function ARN...")
+    print("\n[1/8] Getting Lambda function ARN...")
     func = lambda_client.get_function(FunctionName=FUNCTION_NAME)
     lambda_arn = func["Configuration"]["FunctionArn"]
     print(f"  Lambda ARN: {lambda_arn}")
 
     # Create/get API
-    print("\n[2/7] Creating REST API...")
+    print("\n[2/8] Creating REST API...")
     api_id = get_or_create_api()
 
     # Create /query resource
-    print("\n[3/7] Creating /query resource...")
+    print("\n[3/8] Creating /query resource...")
     root_id = get_root_resource_id(api_id)
     query_resource_id = get_or_create_resource(api_id, root_id, "query")
 
     # Set up POST and OPTIONS methods
-    print("\n[4/7] Configuring methods...")
+    print("\n[4/8] Configuring methods...")
     setup_method(api_id, query_resource_id, "POST", lambda_arn, is_cors=False)
     setup_method(api_id, query_resource_id, "OPTIONS", lambda_arn, is_cors=True)
 
     # Grant API Gateway permission to invoke Lambda
-    print("\n[5/7] Granting permissions...")
+    print("\n[5/8] Granting permissions...")
     add_lambda_permission(api_id, lambda_arn)
 
+    # Add CORS headers to gateway error responses (403, 429, etc.)
+    print("\n[6/8] Configuring gateway error responses...")
+    setup_gateway_responses(api_id)
+
     # Deploy
-    print("\n[6/7] Deploying API...")
+    print("\n[7/8] Deploying API...")
     invoke_url = deploy_api(api_id)
 
     endpoint = f"{invoke_url}/query"
 
     # Create usage plan and API key
-    print("\n[7/7] Creating usage plan and API key...")
+    print("\n[8/8] Creating usage plan and API key...")
     api_key_value = create_usage_plan(api_id)
 
     # Save API key for frontend
