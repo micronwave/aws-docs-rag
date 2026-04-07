@@ -214,6 +214,7 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
         "PINECONE_INDEX_NAME": INDEX_NAME,
         "EMBEDDING_MODEL_ID": EMBEDDING_MODEL_ID,
         "LLM_MODEL_ID": LLM_MODEL_ID,
+        "ALLOWED_ORIGIN": "https://d3d0zch3u8ca61.cloudfront.net",
     }
 
     try:

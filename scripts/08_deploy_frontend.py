@@ -81,8 +81,17 @@ def upload_frontend(api_endpoint: str) -> None:
 
     # Replace placeholder with actual endpoint
     html = html.replace("%%API_ENDPOINT%%", api_endpoint)
-
     print(f"  Injected API endpoint: {api_endpoint}")
+
+    # Replace API key placeholder
+    if os.path.exists("api_key.txt"):
+        with open("api_key.txt") as f:
+            api_key = f.read().strip()
+        html = html.replace("%%API_KEY%%", api_key)
+        print(f"  Injected API key")
+    else:
+        print("  WARNING: api_key.txt not found — API key placeholder will not be replaced.")
+        print("    Run 07_deploy_api_gateway.py first to generate the API key.")
 
     s3.put_object(
         Bucket=FRONTEND_BUCKET,

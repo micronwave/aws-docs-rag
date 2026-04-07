@@ -247,6 +247,7 @@
         // CONFIGURATION — Replace this URL after running 07_deploy_api_gateway.py
         // ──────────────────────────────────────────────────────────────
         const API_ENDPOINT = "%%API_ENDPOINT%%";
+        const API_KEY = "%%API_KEY%%";
         // ──────────────────────────────────────────────────────────────
 
         const chatContainer = document.getElementById('chat-container');
@@ -290,7 +291,10 @@
             try {
                 const resp = await fetch(API_ENDPOINT, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': API_KEY,
+                    },
                     body: JSON.stringify({ question }),
                 });
 

@@ -17,6 +17,7 @@ PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "aws-rag-index")
 EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")
 LLM_MODEL_ID = os.environ.get("LLM_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 TOP_K = 5
 
 # Initialize clients outside the handler (reused across invocations)
@@ -117,8 +118,8 @@ def lambda_handler(event, context):
                 "statusCode": 400,
                 "headers": {
                     "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+                    "Access-Control-Allow-Headers": "Content-Type,x-api-key",
                     "Access-Control-Allow-Methods": "POST,OPTIONS",
                 },
                 "body": json.dumps({"error": "No question provided"}),
@@ -129,8 +130,8 @@ def lambda_handler(event, context):
                 "statusCode": 400,
                 "headers": {
                     "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+                    "Access-Control-Allow-Headers": "Content-Type,x-api-key",
                     "Access-Control-Allow-Methods": "POST,OPTIONS",
                 },
                 "body": json.dumps({"error": "Question too long. Maximum 1000 characters."}),
@@ -152,8 +153,8 @@ def lambda_handler(event, context):
             "statusCode": 200,
             "headers": {
                 "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
                 "Access-Control-Allow-Methods": "POST,OPTIONS",
             },
             "body": json.dumps({
@@ -169,8 +170,8 @@ def lambda_handler(event, context):
             "statusCode": 500,
             "headers": {
                 "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
                 "Access-Control-Allow-Methods": "POST,OPTIONS",
             },
             "body": json.dumps({"error": "Internal server error"}),

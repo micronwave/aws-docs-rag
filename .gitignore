@@ -12,6 +12,9 @@ scoped-policy.json
 # API endpoint (contains your specific URL)
 api_endpoint.txt
 
+# API key (contains your specific key — do not commit)
+api_key.txt
+
 # Python
 __pycache__/
 *.pyc

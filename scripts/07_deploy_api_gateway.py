@@ -86,6 +86,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
         resourceId=resource_id,
         httpMethod=http_method,
         authorizationType="NONE",
+        apiKeyRequired=not is_cors,  # Require API key on POST, not OPTIONS
     )
 
     if is_cors:
@@ -114,9 +115,9 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
             httpMethod=http_method,
             statusCode="200",
             responseParameters={
-                "method.response.header.Access-Control-Allow-Headers": "'Content-Type'",
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,x-api-key'",
                 "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
-                "method.response.header.Access-Control-Allow-Origin": "'*'",
+                "method.response.header.Access-Control-Allow-Origin": "'https://d3d0zch3u8ca61.cloudfront.net'",
             },
             responseTemplates={"application/json": ""},
         )
@@ -175,40 +176,104 @@ def deploy_api(api_id: str) -> str:
     return invoke_url
 
 
+def create_usage_plan(api_id: str) -> str:
+    """Create a usage plan with API key and rate limiting."""
+    # Create API key
+    try:
+        keys = apigw.get_api_keys(nameQuery="aws-rag-key", includeValues=True)
+        if keys["items"]:
+            api_key_id = keys["items"][0]["id"]
+            api_key_value = keys["items"][0]["value"]
+            print(f"  API key already exists: {api_key_id}")
+        else:
+            raise KeyError("not found")
+    except (ClientError, KeyError):
+        resp = apigw.create_api_key(
+            name="aws-rag-key",
+            description="API key for RAG frontend",
+            enabled=True,
+        )
+        api_key_id = resp["id"]
+        api_key_value = resp["value"]
+        print(f"  Created API key: {api_key_id}")
+
+    # Create usage plan with rate limits
+    plans = apigw.get_usage_plans()["items"]
+    plan_id = None
+    for plan in plans:
+        if plan["name"] == "aws-rag-plan":
+            plan_id = plan["id"]
+            print(f"  Usage plan already exists: {plan_id}")
+            break
+
+    if not plan_id:
+        resp = apigw.create_usage_plan(
+            name="aws-rag-plan",
+            description="Rate-limited plan for RAG API",
+            throttle={"rateLimit": 10, "burstLimit": 20},  # 10 req/sec, burst 20
+            quota={"limit": 1000, "period": "DAY"},         # 1000 req/day
+            apiStages=[{"apiId": api_id, "stage": STAGE_NAME}],
+        )
+        plan_id = resp["id"]
+        print(f"  Created usage plan: {plan_id}")
+
+    # Link API key to usage plan
+    try:
+        apigw.create_usage_plan_key(
+            usagePlanId=plan_id,
+            keyId=api_key_id,
+            keyType="API_KEY",
+        )
+    except ClientError:
+        pass  # already linked
+
+    print(f"  API Key value (save this): {api_key_value}")
+    return api_key_value
+
+
 def main():
     print(f"\n{'='*60}")
     print(f"  Deploying API Gateway: {API_NAME}")
     print(f"{'='*60}")
 
     # Get Lambda ARN
-    print("\n[1/6] Getting Lambda function ARN...")
+    print("\n[1/7] Getting Lambda function ARN...")
     func = lambda_client.get_function(FunctionName=FUNCTION_NAME)
     lambda_arn = func["Configuration"]["FunctionArn"]
     print(f"  Lambda ARN: {lambda_arn}")
 
     # Create/get API
-    print("\n[2/6] Creating REST API...")
+    print("\n[2/7] Creating REST API...")
     api_id = get_or_create_api()
 
     # Create /query resource
-    print("\n[3/6] Creating /query resource...")
+    print("\n[3/7] Creating /query resource...")
     root_id = get_root_resource_id(api_id)
     query_resource_id = get_or_create_resource(api_id, root_id, "query")
 
     # Set up POST and OPTIONS methods
-    print("\n[4/6] Configuring methods...")
+    print("\n[4/7] Configuring methods...")
     setup_method(api_id, query_resource_id, "POST", lambda_arn, is_cors=False)
     setup_method(api_id, query_resource_id, "OPTIONS", lambda_arn, is_cors=True)
 
     # Grant API Gateway permission to invoke Lambda
-    print("\n[5/6] Granting permissions...")
+    print("\n[5/7] Granting permissions...")
     add_lambda_permission(api_id, lambda_arn)
 
     # Deploy
-    print("\n[6/6] Deploying API...")
+    print("\n[6/7] Deploying API...")
     invoke_url = deploy_api(api_id)
 
     endpoint = f"{invoke_url}/query"
+
+    # Create usage plan and API key
+    print("\n[7/7] Creating usage plan and API key...")
+    api_key_value = create_usage_plan(api_id)
+
+    # Save API key for frontend
+    with open("api_key.txt", "w") as f:
+        f.write(api_key_value)
+    print(f"  API key saved to api_key.txt")
 
     print(f"\n{'='*60}")
     print(f"  ✓ API Gateway deployed successfully!")
@@ -217,6 +282,7 @@ def main():
     print(f"\n  Test with curl:")
     print(f"  curl -X POST {endpoint} \\")
     print(f"    -H 'Content-Type: application/json' \\")
+    print(f"    -H 'x-api-key: {api_key_value}' \\")
     print(f"    -d '{{\"question\": \"How do I create an S3 bucket?\"}}'")
     print()
 
