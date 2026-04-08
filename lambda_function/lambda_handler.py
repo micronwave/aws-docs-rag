@@ -82,7 +82,7 @@ Provide a clear, helpful answer based strictly on the documentation above."""
 
 
 def call_claude(prompt: str) -> str:
-    """Call Claude 3.5 Sonnet via Bedrock."""
+    """Call Claude Sonnet 4.6 via Bedrock."""
     body = json.dumps({
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": 2048,

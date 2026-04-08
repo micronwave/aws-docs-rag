@@ -94,7 +94,7 @@ Provide a clear, helpful answer based strictly on the documentation above."""
 
 
 def call_claude(prompt: str) -> str:
-    """Send the prompt to Claude 3.5 Sonnet via Bedrock and return the response."""
+    """Send the prompt to Claude Sonnet 4.6 via Bedrock and return the response."""
     body = json.dumps({
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": 2048,
@@ -145,7 +145,7 @@ def main():
     print(f"  [OK] Prompt length: {len(prompt)} characters")
 
     # Step 4: Call Claude
-    print(f"\n[4/4] Calling Claude 3.5 Sonnet via Bedrock...")
+    print(f"\n[4/4] Calling Claude Sonnet 4.6 via Bedrock...")
     answer = call_claude(prompt)
 
     print(f"\n{'='*60}")
