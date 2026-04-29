@@ -9,10 +9,12 @@ import os
 import re
 import json
 import time
+from collections import Counter, deque
+from datetime import datetime, timezone
+import uuid
 import boto3
 import requests
 from bs4 import BeautifulSoup
-from collections import deque
 from urllib.parse import urljoin, urlparse
 
 # ─── Configuration ────────────────────────────────────────────────────
@@ -30,8 +32,15 @@ SEED_URLS = {
 
 MAX_PAGES_PER_SERVICE = 30   # cap per service to keep dataset manageable
 REQUEST_DELAY = 1            # seconds between HTTP requests
+MIN_TEXT_CHARS = int(os.environ.get("INGEST_MIN_TEXT_CHARS", "300"))
+CRAWL_FAILURE_RATE_THRESHOLD = float(os.environ.get("INGEST_CRAWL_FAILURE_RATE_THRESHOLD", "0.25"))
 
 s3_client = boto3.client("s3", region_name=REGION)
+
+
+def make_run_id() -> str:
+    """Create a run identifier for versioned S3 prefixes."""
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
 
 
 def get_page(url: str, max_retries: int = 3) -> str | None:
@@ -55,7 +64,7 @@ def get_page(url: str, max_retries: int = 3) -> str | None:
 def extract_links(html: str, base_url: str, service_path: str) -> list[str]:
     """Extract same-service documentation links from a page."""
     soup = BeautifulSoup(html, "html.parser")
-    links = []
+    links = set()
     parsed_base = urlparse(base_url)
 
     for a in soup.find_all("a", href=True):
@@ -67,12 +76,11 @@ def extract_links(html: str, base_url: str, service_path: str) -> list[str]:
             parsed.netloc == parsed_base.netloc
             and service_path in parsed.path
             and parsed.path.endswith(".html")
-            and "#" not in href
         ):
-            clean = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-            links.append(clean)
+            clean = parsed._replace(fragment="").geturl()
+            links.add(clean)
 
-    return list(set(links))
+    return sorted(links)
 
 
 def clean_html(html: str) -> str:
@@ -100,7 +108,7 @@ def clean_html(html: str) -> str:
     return text
 
 
-def scrape_service(service_name: str, seed_url: str) -> list[dict]:
+def scrape_service(service_name: str, seed_url: str) -> tuple[list[dict], dict]:
     """Crawl documentation for one AWS service starting from seed_url."""
     print(f"\n{'='*60}")
     print(f"  Scraping: {service_name}")
@@ -113,21 +121,33 @@ def scrape_service(service_name: str, seed_url: str) -> list[dict]:
     visited = set()
     queue = deque([seed_url])
     docs = []
+    failed_urls = []
+    skipped_pages = []
+    attempts = 0
 
     while queue and len(docs) < MAX_PAGES_PER_SERVICE:
         url = queue.popleft()
         if url in visited:
             continue
         visited.add(url)
+        attempts += 1
 
         print(f"  [{len(docs)+1}/{MAX_PAGES_PER_SERVICE}] {url}")
         html = get_page(url)
         if not html:
+            failed_urls.append(url)
             continue
 
         text = clean_html(html)
-        if len(text) < 300:
+        if len(text) < MIN_TEXT_CHARS:
             print(f"    -> skipped (only {len(text)} chars)")
+            skipped_pages.append({
+                "service": service_name,
+                "url": url,
+                "reason": "short_content",
+                "char_count": len(text),
+                "minimum_char_count": MIN_TEXT_CHARS,
+            })
             continue
 
         docs.append({
@@ -143,16 +163,85 @@ def scrape_service(service_name: str, seed_url: str) -> list[dict]:
 
         time.sleep(REQUEST_DELAY)
 
-    print(f"  [OK] Collected {len(docs)} pages for {service_name}")
-    return docs
+    failure_rate = (len(failed_urls) / attempts) if attempts else 0.0
+    print(
+        f"  [OK] Collected {len(docs)} pages for {service_name} "
+        f"({len(failed_urls)} failed, {len(skipped_pages)} skipped)"
+    )
+    return docs, {
+        "service": service_name,
+        "seed_url": seed_url,
+        "pages_attempted": attempts,
+        "pages_failed": len(failed_urls),
+        "failed_urls": failed_urls,
+        "seed_failed": seed_url in failed_urls,
+        "failure_rate": failure_rate,
+        "skipped_pages": skipped_pages,
+    }
 
 
-def upload_to_s3(documents: list[dict]) -> None:
+def summarize_crawl_reports(service_reports: list[dict]) -> dict:
+    """Build a crawl summary for the manifest and run decision."""
+    skipped_pages = [item for report in service_reports for item in report["skipped_pages"]]
+    skipped_by_reason = Counter(item["reason"] for item in skipped_pages)
+    skipped_by_service = Counter(item["service"] for item in skipped_pages)
+
+    services = {}
+    for report in service_reports:
+        attempts = report["pages_attempted"]
+        failures = report["pages_failed"]
+        services[report["service"]] = {
+            "seed_url": report["seed_url"],
+            "pages_attempted": attempts,
+            "pages_failed": failures,
+            "failure_rate": round((failures / attempts) if attempts else 0.0, 4),
+            "seed_failed": report["seed_failed"],
+            "failed_urls": report["failed_urls"],
+            "skipped_pages": len(report["skipped_pages"]),
+        }
+
+    total_attempts = sum(report["pages_attempted"] for report in service_reports)
+    total_failures = sum(report["pages_failed"] for report in service_reports)
+    overall_failure_rate = (total_failures / total_attempts) if total_attempts else 0.0
+    run_failed = any(
+        report["seed_failed"] or (
+            report["pages_attempted"]
+            and (report["pages_failed"] / report["pages_attempted"]) >= CRAWL_FAILURE_RATE_THRESHOLD
+        )
+        for report in service_reports
+    )
+
+    return {
+        "total_attempts": total_attempts,
+        "total_failures": total_failures,
+        "failure_rate": round(overall_failure_rate, 4),
+        "failure_threshold": CRAWL_FAILURE_RATE_THRESHOLD,
+        "run_failed": run_failed,
+        "services": services,
+        "skipped_pages_total": len(skipped_pages),
+        "skipped_pages_by_reason": dict(skipped_by_reason),
+        "skipped_pages_by_service": dict(skipped_by_service),
+        "skipped_pages": skipped_pages,
+    }
+
+
+def write_raw_docs_manifest(manifest: dict) -> None:
+    """Write the raw-docs manifest pointer."""
+    s3_client.put_object(
+        Bucket=S3_BUCKET,
+        Key="raw-docs/manifest.json",
+        Body=json.dumps(manifest, indent=2),
+        ContentType="application/json",
+    )
+
+
+def upload_to_s3(documents: list[dict], run_id: str, crawl_summary: dict) -> None:
     """Upload cleaned documents to S3."""
-    print(f"\nUploading {len(documents)} documents to s3://{S3_BUCKET}/raw-docs/ ...")
+    output_prefix = f"raw-docs/{run_id}/"
+    print(f"\nUploading {len(documents)} documents to s3://{S3_BUCKET}/{output_prefix} ...")
 
     for i, doc in enumerate(documents):
-        key = f"raw-docs/{doc['service']}/{i:04d}.json"
+        key = f"{output_prefix}{doc['service']}/{i:04d}.json"
         s3_client.put_object(
             Bucket=S3_BUCKET, Key=key,
             Body=json.dumps(doc, indent=2),
@@ -160,36 +249,75 @@ def upload_to_s3(documents: list[dict]) -> None:
         )
 
     manifest = {
+        "run_id": run_id,
+        "status": "success",
+        "documents_prefix": output_prefix,
         "total_documents": len(documents),
-        "services": list(set(d["service"] for d in documents)),
+        "services": sorted(set(d["service"] for d in documents)),
         "total_characters": sum(d["char_count"] for d in documents),
+        "min_text_chars": MIN_TEXT_CHARS,
+        "crawl": crawl_summary,
     }
-    s3_client.put_object(
-        Bucket=S3_BUCKET, Key="raw-docs/manifest.json",
-        Body=json.dumps(manifest, indent=2),
-        ContentType="application/json",
-    )
+    write_raw_docs_manifest(manifest)
     print(f"  [OK] Upload complete.")
     print(f"  Manifest: {json.dumps(manifest, indent=2)}")
 
 
 def main():
+    run_id = make_run_id()
     all_docs = []
+    service_reports = []
     for name, url in SEED_URLS.items():
-        all_docs.extend(scrape_service(name, url))
+        docs, report = scrape_service(name, url)
+        all_docs.extend(docs)
+        service_reports.append(report)
+
+    crawl_summary = summarize_crawl_reports(service_reports)
+    os.makedirs("local-data/raw-docs", exist_ok=True)
+    with open("local-data/raw-docs/crawl_audit.json", "w") as f:
+        json.dump(crawl_summary, f, indent=2)
+    with open("local-data/raw-docs/skipped_pages.json", "w") as f:
+        json.dump(crawl_summary["skipped_pages"], f, indent=2)
 
     print(f"\n{'='*60}")
     print(f"  TOTAL: {len(all_docs)} documents collected")
+    print(f"  Crawl failures: {crawl_summary['total_failures']} / {crawl_summary['total_attempts']} "
+          f"({crawl_summary['failure_rate'] * 100:.1f}%)")
     print(f"{'='*60}")
 
-    if all_docs:
-        upload_to_s3(all_docs)
-        os.makedirs("local-data/raw-docs", exist_ok=True)
-        with open("local-data/raw-docs/all_documents.json", "w") as f:
-            json.dump(all_docs, f, indent=2)
-        print("  Also saved locally -> local-data/raw-docs/all_documents.json")
-    else:
-        print("  [ERR] No documents collected. Check internet & URLs.")
+    if crawl_summary["run_failed"]:
+        failure_manifest = {
+            "run_id": run_id,
+            "status": "failed",
+            "reason": "crawl_failure_threshold",
+            "documents_prefix": None,
+            "crawl": crawl_summary,
+            "min_text_chars": MIN_TEXT_CHARS,
+        }
+        write_raw_docs_manifest(failure_manifest)
+        print("  [ERR] Crawl failures crossed the threshold or a seed page failed.")
+        print(f"  Failure threshold: {CRAWL_FAILURE_RATE_THRESHOLD:.2f}")
+        print(f"  Details: {json.dumps(crawl_summary, indent=2)}")
+        raise SystemExit(1)
+
+    if not all_docs:
+        failure_manifest = {
+            "run_id": run_id,
+            "status": "failed",
+            "reason": "empty_corpus",
+            "documents_prefix": None,
+            "crawl": crawl_summary,
+            "min_text_chars": MIN_TEXT_CHARS,
+        }
+        write_raw_docs_manifest(failure_manifest)
+        print("  [ERR] No documents collected. Check internet, URLs, or the content length threshold.")
+        raise SystemExit(1)
+
+    upload_to_s3(all_docs, run_id, crawl_summary)
+    os.makedirs("local-data/raw-docs", exist_ok=True)
+    with open("local-data/raw-docs/all_documents.json", "w") as f:
+        json.dump(all_docs, f, indent=2)
+    print("  Also saved locally -> local-data/raw-docs/all_documents.json")
 
 
 if __name__ == "__main__":

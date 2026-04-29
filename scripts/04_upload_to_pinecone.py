@@ -24,20 +24,29 @@ BATCH_SIZE = 100            # Pinecone recommends batches of 100
 s3_client = boto3.client("s3", region_name=REGION)
 
 
-def load_embeddings_from_s3() -> list[dict]:
-    """Download all embedded chunks from S3."""
+def load_embeddings_from_s3() -> tuple[list[dict], dict]:
+    """Download all embedded chunks from the latest embeddings manifest."""
     print("Loading embeddings from S3...")
+    manifest_resp = s3_client.get_object(Bucket=S3_BUCKET, Key="embeddings/manifest.json")
+    manifest = json.loads(manifest_resp["Body"].read().decode("utf-8"))
+    run_id = manifest.get("run_id")
+    if not run_id:
+        raise SystemExit("embeddings/manifest.json is missing run_id; rerun 03_generate_embeddings.py.")
+    if manifest.get("status") != "success":
+        raise SystemExit("embeddings/manifest.json does not mark a successful embedding run; rerun 03_generate_embeddings.py.")
+
+    prefix = manifest.get("documents_prefix") or f"embeddings/{run_id}/"
     chunks = []
     paginator = s3_client.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=S3_BUCKET, Prefix="embeddings/"):
+    for page in paginator.paginate(Bucket=S3_BUCKET, Prefix=prefix):
         for obj in page.get("Contents", []):
             key = obj["Key"]
-            if not key.endswith(".json") or key == "embeddings/manifest.json":
+            if not key.endswith(".json"):
                 continue
             resp = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
             chunks.extend(json.loads(resp["Body"].read().decode("utf-8")))
-    print(f"  Loaded {len(chunks)} embedded chunks")
-    return chunks
+    print(f"  Loaded {len(chunks)} embedded chunks from {prefix}")
+    return chunks, manifest
 
 
 def create_index(pc: Pinecone) -> None:
@@ -127,10 +136,10 @@ def main():
     create_index(pc)
 
     # Load embeddings from S3
-    chunks = load_embeddings_from_s3()
+    chunks, _manifest = load_embeddings_from_s3()
     if not chunks:
-        print("No embeddings found. Run 03_generate_embeddings.py first.")
-        return
+        print("No embeddings found in the current embeddings run. Run 03_generate_embeddings.py first.")
+        raise SystemExit(1)
 
     # Upload
     upload_to_pinecone(pc, chunks)

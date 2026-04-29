@@ -36,5 +36,8 @@ Thumbs.db
 .claude/
 
 # Security audit working files
+rag_audit
 sec_fix*.md
 sec_workflow.md
+EMBEDDING_UPLOAD_AUDIT_FIX_PLAN.txt
+INGESTION_AUDIT_FIX_PLAN.txt
