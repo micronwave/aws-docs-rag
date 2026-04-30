@@ -812,27 +812,6 @@ function addMessage(type, content) {
     return div;
 }
 
-function normalizeSources(rawSources) {
-    if (!Array.isArray(rawSources)) {
-        return [];
-    }
-
-    const urls = rawSources.map(function (source) {
-        if (typeof source === 'string') {
-            return source.trim();
-        }
-
-        if (source && typeof source === 'object') {
-            return String(source.url || source.source_url || '').trim();
-        }
-
-        return '';
-    });
-
-    return [...new Set(urls)]
-        .filter(function (url) { return typeof url === 'string' && url.trim() !== ''; });
-}
-
 async function readResponseBody(resp) {
     const contentType = resp.headers.get('content-type') || '';
     if (contentType.indexOf('application/json') !== -1) {
@@ -867,17 +846,6 @@ function isValidHttpUrl(text) {
         return url.protocol === 'http:' || url.protocol === 'https:';
     } catch (err) {
         return false;
-    }
-}
-
-function getSourceHost(text) {
-    if (!isValidHttpUrl(text)) {
-        return 'Unverified source';
-    }
-    try {
-        return new URL(text).hostname;
-    } catch (err) {
-        return 'Unverified source';
     }
 }
 
