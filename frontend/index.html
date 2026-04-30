@@ -517,6 +517,16 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
   .source-host{display:none;}
   .source-link{font-size:12px;}
 }
+
+/* ── Accessibility: Reduced Motion ── */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -610,7 +620,7 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
           </div>
 
           <div class="ask-workspace">
-            <div id="chat-container">
+            <div id="chat-container" aria-live="polite" aria-atomic="false">
             <div id="welcome">
               <p class="welcome-intro">Ask anything about AWS. The system retrieves relevant chunks from official AWS documentation, then generates a grounded answer with source citations.</p>
               <div class="welcome-examples-title">▪ Example Questions</div>
