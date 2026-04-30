@@ -238,25 +238,24 @@ a:hover{color:#FF6600;}
   margin-bottom:10px;font-family:Verdana,sans-serif;
   border-bottom:1px solid #aabbcc;padding-bottom:5px;
 }
-.example-questions{display:flex;flex-direction:column;gap:6px;}
+.example-questions{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;}
 .example-trigger{
-  background:linear-gradient(to bottom,#dce6f0,#ccd9e8);
+  background:#e0e8f0;
   border:1px solid #aabbcc;
-  padding:10px 14px;cursor:pointer;
-  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;cursor:pointer;
   font-family:Verdana,sans-serif;font-size:13px;color:#0d3d7c;
-  text-align:left;width:100%;
-  transition:background .1s,border-color .2s;
+  font-weight:normal;
+  transition:background 0.1s;
+  border-radius:0;
 }
 .example-trigger:hover{
-  background:linear-gradient(to bottom,#e6eff8,#d4e3f0);
+  background:#d0dce8;
   border-color:#5588BB;
 }
-.example-trigger .toggle-icon{
-  font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
-  color:#0d3d7c;flex-shrink:0;
+.example-trigger:focus-visible{
+  outline:2px solid #FFCC00;
+  outline-offset:2px;
 }
-.example-trigger .example-label{font-weight:bold;flex:1;}
 
 /* ── Messages ── */
 .message{max-width:100%;}
@@ -589,22 +588,10 @@ a.source-link:hover{color:#FF6600;}
               <p class="welcome-intro">Ask anything about AWS. The system retrieves relevant chunks from official AWS documentation, then generates a grounded answer with source citations.</p>
               <div class="welcome-examples-title">▪ Example Questions</div>
               <div class="example-questions">
-                <button class="example-trigger" onclick="askQuestion('How do I create an S3 bucket policy?')">
-                  <span class="toggle-icon">[+]</span>
-                  <span class="example-label">How do I create an S3 bucket policy?</span>
-                </button>
-                <button class="example-trigger" onclick="askQuestion('What are Lambda execution roles?')">
-                  <span class="toggle-icon">[+]</span>
-                  <span class="example-label">What are Lambda execution roles?</span>
-                </button>
-                <button class="example-trigger" onclick="askQuestion('How do I set up a VPC with public and private subnets?')">
-                  <span class="toggle-icon">[+]</span>
-                  <span class="example-label">How do I set up a VPC with public and private subnets?</span>
-                </button>
-                <button class="example-trigger" onclick="askQuestion('What is DynamoDB and when should I use it?')">
-                  <span class="toggle-icon">[+]</span>
-                  <span class="example-label">What is DynamoDB and when should I use it?</span>
-                </button>
+                <button class="example-trigger" onclick="askQuestion('How do I create an S3 bucket policy?')">How do I create an S3 bucket policy?</button>
+                <button class="example-trigger" onclick="askQuestion('What are Lambda execution roles?')">What are Lambda execution roles?</button>
+                <button class="example-trigger" onclick="askQuestion('How do I set up a VPC with public and private subnets?')">How do I set up a VPC with public and private subnets?</button>
+                <button class="example-trigger" onclick="askQuestion('What is DynamoDB and when should I use it?')">What is DynamoDB and when should I use it?</button>
               </div>
             </div>
           </div>
