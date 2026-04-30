@@ -81,6 +81,85 @@ def test_fragment_links_are_normalized(ingest_module):
     ]
 
 
+def test_crawl_summary_marks_failures_and_skipped_counts(ingest_module):
+    service_reports = [
+        {
+            "service": "s3",
+            "seed_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+            "pages_attempted": 4,
+            "pages_failed": 1,
+            "failed_urls": ["https://docs.aws.amazon.com/AmazonS3/latest/userguide/bad.html"],
+            "seed_failed": False,
+            "skipped_pages": [
+                {
+                    "service": "s3",
+                    "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/short.html",
+                    "reason": "short_content",
+                    "char_count": 12,
+                    "minimum_char_count": ingest_module.MIN_TEXT_CHARS,
+                }
+            ],
+        },
+        {
+            "service": "ec2",
+            "seed_url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html",
+            "pages_attempted": 2,
+            "pages_failed": 0,
+            "failed_urls": [],
+            "seed_failed": True,
+            "skipped_pages": [],
+        },
+    ]
+
+    summary = ingest_module.summarize_crawl_reports(service_reports)
+
+    assert summary["run_failed"] is True
+    assert summary["skipped_pages_total"] == 1
+    assert summary["skipped_pages_by_reason"] == {"short_content": 1}
+    assert summary["skipped_pages_by_service"] == {"s3": 1}
+    assert summary["services"]["s3"]["skipped_pages"] == 1
+    assert summary["services"]["ec2"]["seed_failed"] is True
+
+
+def test_chunk_main_exits_nonzero_on_empty_documents(monkeypatch):
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    splitter_stub = types.ModuleType("langchain_text_splitters")
+
+    class _RecursiveCharacterTextSplitter:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+        def split_text(self, text):
+            return [text]
+
+    splitter_stub.RecursiveCharacterTextSplitter = _RecursiveCharacterTextSplitter
+    sys.modules["langchain_text_splitters"] = splitter_stub
+
+    chunk_module = load_script("chunk_docs_test", "scripts/02_chunk_docs.py")
+
+    monkeypatch.setattr(chunk_module, "load_documents_from_s3", lambda: ([], {"run_id": "run-123", "documents_prefix": "raw-docs/run-123/"}))
+    monkeypatch.setattr(chunk_module, "write_chunks_manifest", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(SystemExit, match="1"):
+        chunk_module.main()
+
+
+def test_embedding_main_exits_nonzero_on_empty_chunks(monkeypatch):
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    embed_module = load_script("generate_embeddings_empty_test", "scripts/03_generate_embeddings.py")
+
+    monkeypatch.setattr(embed_module, "load_chunks_from_s3", lambda: ([], {"run_id": "run-123", "documents_prefix": "chunks/run-123/"}))
+    monkeypatch.setattr(embed_module, "write_embeddings_manifest", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(SystemExit, match="1"):
+        embed_module.main()
+
+
 def test_embeddings_manifest_prefix_mismatch_fails(upload_module, monkeypatch):
     class FakeBody:
         def __init__(self, payload):
