@@ -121,6 +121,26 @@ def test_crawl_summary_marks_failures_and_skipped_counts(ingest_module):
     assert summary["services"]["ec2"]["seed_failed"] is True
 
 
+def test_ingest_main_exits_nonzero_on_empty_corpus(ingest_module, monkeypatch):
+    empty_report = {
+        "service": "s3",
+        "seed_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+        "pages_attempted": 1,
+        "pages_failed": 0,
+        "failed_urls": [],
+        "seed_failed": False,
+        "skipped_pages": [],
+    }
+
+    monkeypatch.setattr(ingest_module, "scrape_service", lambda *_args, **_kwargs: ([], dict(empty_report)))
+    monkeypatch.setattr(ingest_module, "write_raw_docs_manifest", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(ingest_module.os, "makedirs", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("builtins.open", lambda *_args, **_kwargs: io.StringIO())
+
+    with pytest.raises(SystemExit, match="1"):
+        ingest_module.main()
+
+
 def test_chunk_main_exits_nonzero_on_empty_documents(monkeypatch):
     monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
@@ -145,6 +165,35 @@ def test_chunk_main_exits_nonzero_on_empty_documents(monkeypatch):
 
     with pytest.raises(SystemExit, match="1"):
         chunk_module.main()
+
+
+def test_chunk_manifest_prefix_mismatch_fails(monkeypatch):
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    chunk_module = load_script("chunk_docs_prefix_test", "scripts/02_chunk_docs.py")
+
+    class FakeBody:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def read(self):
+            return self._payload.encode("utf-8")
+
+    class FakeS3:
+        def get_object(self, Bucket, Key):
+            assert Key == "raw-docs/manifest.json"
+            manifest = {
+                "run_id": "run-123",
+                "status": "success",
+                "documents_prefix": "raw-docs/other-run/",
+            }
+            return {"Body": FakeBody(json.dumps(manifest))}
+
+    monkeypatch.setattr(chunk_module, "s3_client", FakeS3())
+
+    with pytest.raises(SystemExit, match="points to"):
+        chunk_module.load_documents_from_s3()
 
 
 def test_embedding_main_exits_nonzero_on_empty_chunks(monkeypatch):

@@ -28,6 +28,10 @@ def make_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
 
 
+def expected_raw_docs_prefix(run_id: str) -> str:
+    return f"raw-docs/{run_id}/"
+
+
 def load_documents_from_s3() -> tuple[list[dict], dict]:
     """Download all raw documents from the latest raw-docs manifest."""
     print("Loading documents from S3...")
@@ -39,7 +43,11 @@ def load_documents_from_s3() -> tuple[list[dict], dict]:
     if manifest.get("status") != "success":
         raise SystemExit("raw-docs/manifest.json does not mark a successful ingest run; rerun 01_ingest_docs.py.")
 
-    prefix = manifest.get("documents_prefix") or f"raw-docs/{run_id}/"
+    prefix = manifest.get("documents_prefix") or expected_raw_docs_prefix(run_id)
+    if prefix != expected_raw_docs_prefix(run_id):
+        raise SystemExit(
+            f"raw-docs/manifest.json points to {prefix!r}, but the manifest run_id is {run_id!r}; rerun 01_ingest_docs.py."
+        )
     documents = []
 
     paginator = s3_client.get_paginator("list_objects_v2")
