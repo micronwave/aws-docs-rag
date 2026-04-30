@@ -104,13 +104,14 @@ a:hover{color:#FF6600;}
   display:block;width:100%;padding:9px 14px;
   color:#CCDDEE;text-decoration:none;font-size:12px;font-weight:bold;
   font-family:Verdana,sans-serif;
-  background:linear-gradient(to bottom,#003d66,#002d4d);
   border:none;border-bottom:1px solid #001a33;border-top:1px solid #004d80;
   cursor:pointer;text-align:left;transition:background 0.2s ease;
 }
-.nav-btn:hover,.nav-btn.active{background:linear-gradient(to bottom,#005580,#004466);color:#fff;}
-.nav-btn.active{border-left:3px solid #FFCC00;padding-left:11px;}
-.nav-btn:not(.active):hover{background:linear-gradient(to bottom,#004466,#003a55);}
+.nav-btn:not(.active){background:transparent;color:#CCDDEE;}
+.nav-btn:not(.active):hover{background:linear-gradient(to bottom,#004466,#003a55);color:#fff;}
+.nav-btn.active{border-left:3px solid #FFCC00;padding-left:11px;background:linear-gradient(to bottom,#005580,#004466);color:#fff;}
+.nav-btn.active:hover{background:linear-gradient(to bottom,#0066aa,#005580);}
+.nav-btn:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 .nav-arrow{color:#CC8800;margin-right:6px;font-size:10px;}
 
 .sidebar-bottom{flex:1;display:flex;flex-direction:column;justify-content:flex-end;}
@@ -250,8 +251,9 @@ a:hover{color:#FF6600;}
 }
 .example-trigger:hover{
   background:#d0dce8;
-  border-color:#5588BB;
+  border-color:#99aacc;
 }
+.example-trigger:active{background:#c0d0e0;}
 .example-trigger:focus-visible{
   outline:2px solid #FFCC00;
   outline-offset:2px;
@@ -357,7 +359,8 @@ a:hover{color:#FF6600;}
 a.source-link{
   color:#0033CC;text-decoration:underline;
 }
-a.source-link:hover{color:#FF6600;}
+a.source-link:hover{color:#FF6600;text-decoration:underline;}
+a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 
 .message.error{
   background:#333;color:#FFCC00;border:1px solid #CC8800;
@@ -419,16 +422,19 @@ a.source-link:hover{color:#FF6600;}
   flex:1;min-width:0;min-height:38px;color:#222;
 }
 .form-input::placeholder{color:#999;}
-.form-input:focus{
-  outline:2px solid #CC8800;outline-offset:2px;
+.form-input:focus-visible{
+  outline:2px solid #FFCC00;outline-offset:2px;
   border-color:#0d3d7c;
 }
 .submit-btn{
   background:#E0E0E0;color:#003366;font-family:Verdana,sans-serif;
   font-size:13px;font-weight:bold;padding:6px 22px;min-height:38px;
   border:2px outset #CCCCCC;cursor:pointer;flex-shrink:0;align-self:center;
+  transition:background 0.1s;
 }
 .submit-btn:hover{border-style:inset;background:#D0D0D0;}
+.submit-btn:active{border-style:inset;background:#C8C8C8;}
+.submit-btn:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 .submit-btn:disabled{opacity:.5;cursor:not-allowed;border-style:outset;background:#E0E0E0;}
 
 /* ── About / Architecture sections ── */
@@ -1159,3 +1165,4 @@ if (typeof window !== 'undefined' && typeof setInterval === 'function') {
 </script>
 </body>
 </html>
+
