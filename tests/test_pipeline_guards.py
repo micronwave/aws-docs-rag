@@ -142,6 +142,65 @@ def test_crawl_summary_marks_threshold_failure(ingest_module):
     assert summary["run_failed"] is True
 
 
+def test_upload_to_s3_uses_versioned_prefix_and_records_audit(ingest_module, monkeypatch):
+    calls = []
+
+    class FakeS3:
+        def put_object(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(ingest_module, "s3_client", FakeS3())
+
+    docs = [
+        {
+            "service": "s3",
+            "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+            "content": "hello",
+            "char_count": 5,
+        }
+    ]
+    crawl_summary = {
+        "total_attempts": 1,
+        "total_failures": 0,
+        "failure_rate": 0.0,
+        "failure_threshold": ingest_module.CRAWL_FAILURE_RATE_THRESHOLD,
+        "run_failed": False,
+        "services": {
+            "s3": {
+                "seed_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+                "pages_attempted": 1,
+                "pages_failed": 0,
+                "failure_rate": 0.0,
+                "seed_failed": False,
+                "failed_urls": [],
+                "skipped_pages": 1,
+            }
+        },
+        "skipped_pages_total": 1,
+        "skipped_pages_by_reason": {"short_content": 1},
+        "skipped_pages_by_service": {"s3": 1},
+        "skipped_pages": [
+            {
+                "service": "s3",
+                "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/short.html",
+                "reason": "short_content",
+                "char_count": 12,
+                "minimum_char_count": ingest_module.MIN_TEXT_CHARS,
+            }
+        ],
+    }
+
+    ingest_module.upload_to_s3(docs, "run-123", crawl_summary)
+
+    assert calls[0]["Key"] == "raw-docs/run-123/s3/0000.json"
+    assert calls[1]["Key"] == "raw-docs/manifest.json"
+    manifest = json.loads(calls[1]["Body"])
+    assert manifest["run_id"] == "run-123"
+    assert manifest["documents_prefix"] == "raw-docs/run-123/"
+    assert manifest["crawl"]["skipped_pages_total"] == 1
+    assert manifest["crawl"]["skipped_pages_by_reason"] == {"short_content": 1}
+
+
 def test_ingest_main_exits_nonzero_on_crawl_failure_threshold(ingest_module, monkeypatch):
     failed_report = {
         "service": "s3",
