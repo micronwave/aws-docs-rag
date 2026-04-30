@@ -408,15 +408,19 @@ a.source-link:hover{color:#FF6600;}
 }
 .form-input{
   font-family:Verdana,sans-serif;font-size:15px;
-  padding:5px 7px;border:2px inset #BBBBBB;
+  padding:6px 8px;border:2px inset #BBBBBB;
   background:#F5F5F5;width:100%;box-sizing:border-box;
-  flex:1;min-width:0;
+  flex:1;min-width:0;min-height:38px;color:#222;
 }
-.form-input:focus{outline:1px solid #5588BB;}
+.form-input::placeholder{color:#999;}
+.form-input:focus{
+  outline:2px solid #CC8800;outline-offset:2px;
+  border-color:#0d3d7c;
+}
 .submit-btn{
   background:#E0E0E0;color:#003366;font-family:Verdana,sans-serif;
-  font-size:15px;font-weight:bold;padding:6px 22px;
-  border:2px outset #CCCCCC;cursor:pointer;flex-shrink:0;
+  font-size:13px;font-weight:bold;padding:6px 22px;min-height:38px;
+  border:2px outset #CCCCCC;cursor:pointer;flex-shrink:0;align-self:center;
 }
 .submit-btn:hover{border-style:inset;background:#D0D0D0;}
 .submit-btn:disabled{opacity:.5;cursor:not-allowed;border-style:outset;background:#E0E0E0;}
