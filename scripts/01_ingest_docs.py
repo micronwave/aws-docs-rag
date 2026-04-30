@@ -43,6 +43,23 @@ def make_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
 
 
+def normalize_crawl_link(base_url: str, href: str, service_path: str) -> str | None:
+    """Return the canonical crawl URL for an internal AWS docs link.
+
+    Fragment-only and fragment-bearing links should resolve to the page URL
+    they reference, rather than being dropped as distinct URLs.
+    """
+    parsed_base = urlparse(base_url)
+    full = urljoin(base_url, href)
+    parsed = urlparse(full)
+
+    if parsed.netloc != parsed_base.netloc:
+        return None
+    if service_path not in parsed.path or not parsed.path.endswith(".html"):
+        return None
+    return parsed._replace(fragment="").geturl()
+
+
 def get_page(url: str, max_retries: int = 3) -> str | None:
     """Download a single page with retries. Returns HTML or None on failure."""
     headers = {"User-Agent": "AWS-RAG-Project-Educational/1.0"}
@@ -65,19 +82,10 @@ def extract_links(html: str, base_url: str, service_path: str) -> list[str]:
     """Extract same-service documentation links from a page."""
     soup = BeautifulSoup(html, "html.parser")
     links = set()
-    parsed_base = urlparse(base_url)
 
     for a in soup.find_all("a", href=True):
-        href = a["href"]
-        full = urljoin(base_url, href)
-        parsed = urlparse(full)
-
-        if (
-            parsed.netloc == parsed_base.netloc
-            and service_path in parsed.path
-            and parsed.path.endswith(".html")
-        ):
-            clean = parsed._replace(fragment="").geturl()
+        clean = normalize_crawl_link(base_url, a["href"], service_path)
+        if clean:
             links.add(clean)
 
     return sorted(links)
