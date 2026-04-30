@@ -622,3 +622,175 @@ def test_static_template_invariants():
     assert html.count("%%API_ENDPOINT%%") == 1
     assert len(re.findall(r"<script>", html)) == 1
     assert len(re.findall(r"</script>", html)) == 1
+
+
+def test_source_service_label_parsed_from_plain_string_url():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "S3 stores objects.",
+                    "sources": ["https://docs.aws.amazon.com/s3/latest/userguide/Welcome.html"],
+                },
+            },
+        }
+    )
+
+    assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
+    assert len(assistant_nodes) == 1
+    all_nodes = list(_walk_nodes(assistant_nodes[0]))
+    service_spans = [n for n in all_nodes if n["className"] == "source-service"]
+    assert len(service_spans) == 1
+    assert service_spans[0]["textContent"] == "S3"
+
+
+def test_source_service_label_parsed_from_object_url():
+    result = _run_frontend_case(
+        {
+            "question": "What is Lambda?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "Lambda runs code.",
+                    "sources": [{"url": "https://docs.aws.amazon.com/lambda/latest/dg/welcome.html"}],
+                },
+            },
+        }
+    )
+
+    assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
+    assert len(assistant_nodes) == 1
+    all_nodes = list(_walk_nodes(assistant_nodes[0]))
+    service_spans = [n for n in all_nodes if n["className"] == "source-service"]
+    assert len(service_spans) == 1
+    assert service_spans[0]["textContent"] == "LAMBDA"
+
+
+def test_source_service_label_backend_field_overrides_url_parse():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "S3 stores objects.",
+                    "sources": [{"url": "https://docs.aws.amazon.com/s3/latest/userguide/Welcome.html", "service": "S3-User-Guide"}],
+                },
+            },
+        }
+    )
+
+    assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
+    assert len(assistant_nodes) == 1
+    all_nodes = list(_walk_nodes(assistant_nodes[0]))
+    service_spans = [n for n in all_nodes if n["className"] == "source-service"]
+    assert len(service_spans) == 1
+    assert service_spans[0]["textContent"] == "S3-User-Guide"
+
+
+def test_source_service_fallback_for_non_aws_url():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "An answer.",
+                    "sources": ["https://example.com/docs/something"],
+                },
+            },
+        }
+    )
+
+    assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
+    assert len(assistant_nodes) == 1
+    all_nodes = list(_walk_nodes(assistant_nodes[0]))
+    service_spans = [n for n in all_nodes if n["className"] == "source-service"]
+    assert len(service_spans) == 1
+    assert service_spans[0]["textContent"] == "AWS"
+
+
+def test_source_service_fallback_for_invalid_url():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "An answer.",
+                    "sources": ["not-a-url"],
+                },
+            },
+        }
+    )
+
+    assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
+    assert len(assistant_nodes) == 1
+    all_nodes = list(_walk_nodes(assistant_nodes[0]))
+    service_spans = [n for n in all_nodes if n["className"] == "source-service"]
+    assert len(service_spans) == 1
+    assert service_spans[0]["textContent"] == "AWS"
+
+
+def test_source_host_replaced_by_source_service():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "S3 stores objects.",
+                    "sources": ["https://docs.aws.amazon.com/s3/latest/userguide/Welcome.html"],
+                },
+            },
+        }
+    )
+
+    all_nodes = list(_walk_nodes(result["chat"]))
+    host_spans = [n for n in all_nodes if n["className"] == "source-host"]
+    service_spans = [n for n in all_nodes if n["className"] == "source-service"]
+    assert len(host_spans) == 0, "source-host should no longer appear in rendered output"
+    assert len(service_spans) == 1
+
+
+def test_source_score_not_displayed():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "S3 stores objects.",
+                    "sources": [{"url": "https://docs.aws.amazon.com/s3/latest/userguide/Welcome.html", "score": 0.92}],
+                },
+            },
+        }
+    )
+
+    all_nodes = list(_walk_nodes(result["chat"]))
+    texts = [n["textContent"] for n in all_nodes]
+    assert not any("0.92" in t for t in texts), "score value should not appear in the UI"
+    assert not any("score" in t.lower() for t in texts), "score label should not appear in the UI"
