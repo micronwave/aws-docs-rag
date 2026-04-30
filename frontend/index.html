@@ -89,7 +89,7 @@ a:hover{color:#FF6600;}
 
 /* ── Sidebar ── */
 .sidebar{
-  width:230px;flex-shrink:0;background:#0f3d72;
+  width:230px;min-width:210px;flex-shrink:0;background:#0f3d72;
   border-right:2px solid #001a33;
   display:flex;flex-direction:column;
 }
@@ -106,10 +106,11 @@ a:hover{color:#FF6600;}
   font-family:Verdana,sans-serif;
   background:linear-gradient(to bottom,#003d66,#002d4d);
   border:none;border-bottom:1px solid #001a33;border-top:1px solid #004d80;
-  cursor:pointer;text-align:left;transition:background .1s;
+  cursor:pointer;text-align:left;transition:background 0.2s ease;
 }
 .nav-btn:hover,.nav-btn.active{background:linear-gradient(to bottom,#005580,#004466);color:#fff;}
 .nav-btn.active{border-left:3px solid #FFCC00;padding-left:11px;}
+.nav-btn:not(.active):hover{background:linear-gradient(to bottom,#004466,#003a55);}
 .nav-arrow{color:#CC8800;margin-right:6px;font-size:10px;}
 
 .sidebar-bottom{flex:1;display:flex;flex-direction:column;justify-content:flex-end;}
