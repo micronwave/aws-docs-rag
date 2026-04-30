@@ -299,6 +299,46 @@ def test_chunk_manifest_prefix_mismatch_fails(monkeypatch):
         chunk_module.load_documents_from_s3()
 
 
+def test_upload_chunks_to_s3_uses_versioned_prefix_and_records_source_manifest(monkeypatch):
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    chunk_module = load_script("chunk_docs_upload_test", "scripts/02_chunk_docs.py")
+    calls = []
+
+    class FakeS3:
+        def put_object(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(chunk_module, "s3_client", FakeS3())
+
+    chunks = [
+        {
+            "chunk_id": "chunk_000001",
+            "service": "s3",
+            "source_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+            "chunk_index": 0,
+            "total_chunks_in_doc": 1,
+            "content": "hello",
+            "char_count": 5,
+        }
+    ]
+    source_manifest = {
+        "run_id": "raw-run-123",
+        "documents_prefix": "raw-docs/raw-run-123/",
+    }
+
+    chunk_module.upload_chunks_to_s3(chunks, "chunk-run-123", source_manifest)
+
+    assert calls[0]["Key"] == "chunks/chunk-run-123/batch_0000.json"
+    assert calls[1]["Key"] == "chunks/manifest.json"
+    manifest = json.loads(calls[1]["Body"])
+    assert manifest["run_id"] == "chunk-run-123"
+    assert manifest["documents_prefix"] == "chunks/chunk-run-123/"
+    assert manifest["source_run_id"] == "raw-run-123"
+    assert manifest["source_documents_prefix"] == "raw-docs/raw-run-123/"
+
+
 def test_embedding_main_exits_nonzero_on_empty_chunks(monkeypatch):
     monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
@@ -339,6 +379,48 @@ def test_embedding_main_exits_nonzero_on_empty_embeddings(monkeypatch):
 
     with pytest.raises(SystemExit, match="1"):
         embed_module.main()
+
+
+def test_upload_embeddings_to_s3_uses_versioned_prefix_and_records_source_manifest(monkeypatch):
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    embed_module = load_script("generate_embeddings_upload_test", "scripts/03_generate_embeddings.py")
+    calls = []
+
+    class FakeS3:
+        def put_object(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(embed_module, "s3_client", FakeS3())
+
+    embedded = [
+        {
+            "chunk_id": "chunk_000001",
+            "service": "s3",
+            "source_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+            "chunk_index": 0,
+            "content": "hello",
+            "char_count": 5,
+            "generation_id": "gen-run-123",
+            "embedding": [0.0] * embed_module.EMBEDDING_DIMENSION,
+        }
+    ]
+    source_manifest = {
+        "run_id": "chunk-run-123",
+        "documents_prefix": "chunks/chunk-run-123/",
+    }
+
+    embed_module.upload_embeddings_to_s3(embedded, "gen-run-123", source_manifest)
+
+    assert calls[0]["Key"] == "embeddings/gen-run-123/batch_0000.json"
+    assert calls[1]["Key"] == "embeddings/manifest.json"
+    manifest = json.loads(calls[1]["Body"])
+    assert manifest["run_id"] == "gen-run-123"
+    assert manifest["generation_id"] == "gen-run-123"
+    assert manifest["documents_prefix"] == "embeddings/gen-run-123/"
+    assert manifest["source_run_id"] == "chunk-run-123"
+    assert manifest["source_documents_prefix"] == "chunks/chunk-run-123/"
 
 
 def test_embeddings_manifest_prefix_mismatch_fails(upload_module, monkeypatch):

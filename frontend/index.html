@@ -247,7 +247,7 @@
         // CONFIGURATION — Replace this URL after running 07_deploy_api_gateway.py
         // ──────────────────────────────────────────────────────────────
         const API_ENDPOINT = "%%API_ENDPOINT%%";
-        const API_KEY = "%%API_KEY%%";
+        const REQUEST_TIMEOUT_MS = 30000;
         // ──────────────────────────────────────────────────────────────
 
         const chatContainer = document.getElementById('chat-container');
@@ -273,6 +273,45 @@
             return div;
         }
 
+        function normalizeSources(rawSources) {
+            if (!Array.isArray(rawSources)) {
+                return [];
+            }
+
+            const urls = rawSources.map((source) => {
+                if (typeof source === 'string') {
+                    return source.trim();
+                }
+
+                if (source && typeof source === 'object') {
+                    return String(source.url || source.source_url || '').trim();
+                }
+
+                return '';
+            });
+
+            return [...new Set(urls)]
+                .filter((url) => typeof url === 'string' && url.trim() !== '');
+        }
+
+        async function readResponseBody(resp) {
+            const contentType = resp.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                try {
+                    return await resp.json();
+                } catch (err) {
+                    return null;
+                }
+            }
+
+            try {
+                const text = await resp.text();
+                return text ? { raw: text } : null;
+            } catch (err) {
+                return null;
+            }
+        }
+
         async function handleSubmit(e) {
             e.preventDefault();
             const question = questionInput.value.trim();
@@ -292,21 +331,50 @@
             submitBtn.disabled = true;
             const loadingMsg = addMessage('loading', '<span class="loading-dots">Searching docs and generating answer</span>', true);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
             try {
                 const resp = await fetch(API_ENDPOINT, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-api-key': API_KEY,
                     },
                     body: JSON.stringify({ question }),
+                    signal: controller.signal,
                 });
 
-                const data = await resp.json();
+                const data = await readResponseBody(resp);
                 loadingMsg.remove();
 
+                if (!resp.ok) {
+                    const serverError = data && typeof data === 'object' && data.error
+                        ? data.error
+                        : null;
+                    const rawBody = data && typeof data === 'object' && data.raw
+                        ? `: ${data.raw}`
+                        : '';
+                    addMessage(
+                        'error',
+                        serverError
+                            ? `Backend error (${resp.status}): ${serverError}`
+                            : `Backend error (${resp.status})${rawBody}`,
+                    );
+                    return;
+                }
+
+                if (!data || typeof data !== 'object') {
+                    addMessage('error', 'Backend error: response was not valid JSON.');
+                    return;
+                }
+
                 if (data.error) {
-                    addMessage('error', `Error: ${data.error}`);
+                    addMessage('error', `Backend error (${resp.status}): ${data.error}`);
+                    return;
+                }
+
+                if (typeof data.answer !== 'string' || data.answer.trim() === '') {
+                    addMessage('error', `Backend error (${resp.status}): response did not include an answer.`);
                     return;
                 }
 
@@ -317,45 +385,47 @@
                 answerDiv.textContent = data.answer;
                 msgDiv.appendChild(answerDiv);
 
-                if (data.sources && data.sources.length > 0) {
-                    const uniqueUrls = [...new Set(data.sources.map(s => s.url))]
-                        .filter(url => url && typeof url === 'string' && url.trim() !== '');
-                    if (uniqueUrls.length > 0) {
-                        const sourcesDiv = document.createElement('div');
-                        sourcesDiv.className = 'sources';
-                        const strong = document.createElement('strong');
-                        strong.textContent = 'Sources:';
-                        sourcesDiv.appendChild(strong);
-                        sourcesDiv.appendChild(document.createElement('br'));
+                const uniqueUrls = normalizeSources(data.sources);
+                if (uniqueUrls.length > 0) {
+                    const sourcesDiv = document.createElement('div');
+                    sourcesDiv.className = 'sources';
+                    const strong = document.createElement('strong');
+                    strong.textContent = 'Sources:';
+                    sourcesDiv.appendChild(strong);
+                    sourcesDiv.appendChild(document.createElement('br'));
 
-                        uniqueUrls.forEach((url, i) => {
-                            if (i > 0) sourcesDiv.appendChild(document.createElement('br'));
-                            const text = document.createTextNode(`${i + 1}. `);
-                            sourcesDiv.appendChild(text);
-                            // Only render as a clickable link for valid http/https URLs
-                            const isValidUrl = /^https?:\/\/.+/.test(url);
-                            if (isValidUrl) {
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.target = '_blank';
-                                a.rel = 'noopener noreferrer';
-                                a.textContent = url;
-                                sourcesDiv.appendChild(a);
-                            } else {
-                                const span = document.createElement('span');
-                                span.textContent = url;
-                                sourcesDiv.appendChild(span);
-                            }
-                        });
+                    uniqueUrls.forEach((url, i) => {
+                        if (i > 0) sourcesDiv.appendChild(document.createElement('br'));
+                        const text = document.createTextNode(`${i + 1}. `);
+                        sourcesDiv.appendChild(text);
+                        // Only render as a clickable link for valid http/https URLs
+                        const isValidUrl = /^https?:\/\/.+/.test(url);
+                        if (isValidUrl) {
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.target = '_blank';
+                            a.rel = 'noopener noreferrer';
+                            a.textContent = url;
+                            sourcesDiv.appendChild(a);
+                        } else {
+                            const span = document.createElement('span');
+                            span.textContent = url;
+                            sourcesDiv.appendChild(span);
+                        }
+                    });
 
-                        msgDiv.appendChild(sourcesDiv);
-                    }
+                    msgDiv.appendChild(sourcesDiv);
                 }
 
             } catch (err) {
                 loadingMsg.remove();
-                addMessage('error', `Network error: ${err.message}. Check that the API endpoint is configured.`);
+                if (err.name === 'AbortError') {
+                    addMessage('error', `Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds. Please try again.`);
+                } else {
+                    addMessage('error', `Network error: ${err.message}. Check that the API endpoint is configured.`);
+                }
             } finally {
+                clearTimeout(timeoutId);
                 submitBtn.disabled = false;
                 questionInput.focus();
             }

@@ -86,7 +86,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
         resourceId=resource_id,
         httpMethod=http_method,
         authorizationType="NONE",
-        apiKeyRequired=not is_cors,  # Require API key on POST, not OPTIONS
+        apiKeyRequired=False,
     )
 
     if is_cors:
@@ -115,7 +115,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
             httpMethod=http_method,
             statusCode="200",
             responseParameters={
-                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,x-api-key'",
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type'",
                 "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
                 "method.response.header.Access-Control-Allow-Origin": "'https://d3d0zch3u8ca61.cloudfront.net'",
             },
@@ -168,14 +168,13 @@ CORS_ORIGIN = "https://d3d0zch3u8ca61.cloudfront.net"
 # API Gateway error response types that need CORS headers so the browser
 # can read the error instead of showing a generic "Failed to fetch".
 GATEWAY_ERROR_TYPES = [
-    "MISSING_AUTHENTICATION_TOKEN",  # 403 -- no API key sent
-    "INVALID_API_KEY",               # 403 -- wrong API key
-    "ACCESS_DENIED",                 # 403 -- authorizer denial
-    "QUOTA_EXCEEDED",                # 429 -- usage plan quota exceeded
-    "THROTTLED",                     # 429 -- rate limit exceeded
-    "API_CONFIGURATION_ERROR",       # 500 -- misconfigured integration
-    "DEFAULT_4XX",                   # catch-all for other 4xx
-    "DEFAULT_5XX",                   # catch-all for other 5xx
+    "MISSING_AUTHENTICATION_TOKEN",
+    "ACCESS_DENIED",
+    "QUOTA_EXCEEDED",
+    "THROTTLED",
+    "API_CONFIGURATION_ERROR",
+    "DEFAULT_4XX",
+    "DEFAULT_5XX",
 ]
 
 
@@ -187,7 +186,7 @@ def setup_gateway_responses(api_id: str) -> None:
             responseType=response_type,
             responseParameters={
                 "gatewayresponse.header.Access-Control-Allow-Origin": f"'{CORS_ORIGIN}'",
-                "gatewayresponse.header.Access-Control-Allow-Headers": "'Content-Type,x-api-key'",
+                "gatewayresponse.header.Access-Control-Allow-Headers": "'Content-Type'",
             },
         )
     print(f"  [OK] CORS headers added to {len(GATEWAY_ERROR_TYPES)} gateway error responses")
@@ -204,61 +203,6 @@ def deploy_api(api_id: str) -> str:
     invoke_url = f"https://{api_id}.execute-api.{REGION}.amazonaws.com/{STAGE_NAME}"
     print(f"  [OK] Deployed to stage '{STAGE_NAME}'")
     return invoke_url
-
-
-def create_usage_plan(api_id: str) -> str:
-    """Create a usage plan with API key and rate limiting."""
-    # Create API key
-    try:
-        keys = apigw.get_api_keys(nameQuery="aws-rag-key", includeValues=True)
-        if keys["items"]:
-            api_key_id = keys["items"][0]["id"]
-            api_key_value = keys["items"][0]["value"]
-            print(f"  API key already exists: {api_key_id}")
-        else:
-            raise KeyError("not found")
-    except (ClientError, KeyError):
-        resp = apigw.create_api_key(
-            name="aws-rag-key",
-            description="API key for RAG frontend",
-            enabled=True,
-        )
-        api_key_id = resp["id"]
-        api_key_value = resp["value"]
-        print(f"  Created API key: {api_key_id}")
-
-    # Create usage plan with rate limits
-    plans = apigw.get_usage_plans()["items"]
-    plan_id = None
-    for plan in plans:
-        if plan["name"] == "aws-rag-plan":
-            plan_id = plan["id"]
-            print(f"  Usage plan already exists: {plan_id}")
-            break
-
-    if not plan_id:
-        resp = apigw.create_usage_plan(
-            name="aws-rag-plan",
-            description="Rate-limited plan for RAG API",
-            throttle={"rateLimit": 10, "burstLimit": 20},  # 10 req/sec, burst 20
-            quota={"limit": 1000, "period": "DAY"},         # 1000 req/day
-            apiStages=[{"apiId": api_id, "stage": STAGE_NAME}],
-        )
-        plan_id = resp["id"]
-        print(f"  Created usage plan: {plan_id}")
-
-    # Link API key to usage plan
-    try:
-        apigw.create_usage_plan_key(
-            usagePlanId=plan_id,
-            keyId=api_key_id,
-            keyType="API_KEY",
-        )
-    except ClientError:
-        pass  # already linked
-
-    print(f"  API Key value (save this): {api_key_value}")
-    return api_key_value
 
 
 def main():
@@ -295,19 +239,10 @@ def main():
     setup_gateway_responses(api_id)
 
     # Deploy
-    print("\n[7/8] Deploying API...")
+    print("\n[7/7] Deploying API...")
     invoke_url = deploy_api(api_id)
 
     endpoint = f"{invoke_url}/query"
-
-    # Create usage plan and API key
-    print("\n[8/8] Creating usage plan and API key...")
-    api_key_value = create_usage_plan(api_id)
-
-    # Save API key for frontend
-    with open("api_key.txt", "w") as f:
-        f.write(api_key_value)
-    print(f"  API key saved to api_key.txt")
 
     print(f"\n{'='*60}")
     print(f"  [OK] API Gateway deployed successfully!")
@@ -316,7 +251,6 @@ def main():
     print(f"\n  Test with curl:")
     print(f"  curl -X POST {endpoint} \\")
     print(f"    -H 'Content-Type: application/json' \\")
-    print(f"    -H 'x-api-key: {api_key_value}' \\")
     print(f"    -d '{{\"question\": \"How do I create an S3 bucket?\"}}'")
     print()
 
