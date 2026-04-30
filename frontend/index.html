@@ -199,16 +199,26 @@ a:hover{color:#FF6600;}
 .page-kicker{
   font-family:'Courier New',monospace;
   font-size:12px;
+  font-weight:bold;
   color:#003355;
   text-transform:uppercase;
   letter-spacing:0;
-  margin-bottom:4px;
+  margin-bottom:8px;
 }
 .section-heading{
   font-family:Verdana,Tahoma,sans-serif;font-size:22px;font-weight:bold;
-  color:#0d3d7c;padding-bottom:6px;border-bottom:2px solid #CC8800;
-  margin-bottom:16px;margin-top:0;
+  color:#0d3d7c;padding-bottom:8px;border-bottom:2px solid #CC8800;
+  margin-bottom:12px;margin-top:0;
   display:flex;align-items:center;gap:9px;
+}
+
+/* Ask workspace structure */
+.ask-header{padding:24px 0 16px 0;}
+.ask-lede{font-size:15px;color:#003355;margin:0;line-height:1.5;}
+
+.ask-workspace{
+  display:flex;flex-direction:column;flex:1;min-height:0;
+  max-width:980px;margin:0 auto;width:100%;
 }
 
 /* ── Ask section ── */
@@ -216,7 +226,7 @@ a:hover{color:#FF6600;}
   flex:1;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:14px;
   padding:8px 0 14px;
-  max-width:900px;width:100%;margin:0 auto;
+  width:100%;
 }
 #welcome{padding:8px 0 16px;}
 .welcome-intro{font-size:16px;color:#333;margin-bottom:16px;line-height:1.7;}
@@ -386,7 +396,7 @@ a.source-link:hover{color:#FF6600;}
   background:#ccd9e8;
   padding:12px 14px;margin-top:auto;
   flex-shrink:0;
-  max-width:900px;width:100%;margin-left:auto;margin-right:auto;
+  width:100%;
 }
 #input-area form{
   display:flex;align-items:center;gap:8px;
@@ -562,9 +572,13 @@ a.source-link:hover{color:#FF6600;}
         <!-- Ask -->
         <div data-section="ask" class="section-active">
           <div class="page-kicker">Interactive Query</div>
-          <h2 class="section-heading">▪ Ask</h2>
+          <div class="ask-header">
+            <h2 class="section-heading">▪ Ask</h2>
+            <p class="ask-lede">Ask a focused AWS question. Answers are grounded in retrieved documentation sources.</p>
+          </div>
 
-          <div id="chat-container">
+          <div class="ask-workspace">
+            <div id="chat-container">
             <div id="welcome">
               <p class="welcome-intro">Ask anything about AWS. The system retrieves relevant chunks from official AWS documentation, then generates a grounded answer with source citations.</p>
               <div class="welcome-examples-title">▪ Example Questions</div>
@@ -595,6 +609,7 @@ a.source-link:hover{color:#FF6600;}
               <input type="text" id="question-input" class="form-input" placeholder="Ask a question about AWS..." autocomplete="off">
               <button type="submit" id="submit-btn" class="submit-btn">[ Ask ]</button>
             </form>
+          </div>
           </div>
         </div>
 
