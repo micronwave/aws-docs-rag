@@ -63,7 +63,7 @@ def create_frontend_bucket() -> None:
 def upload_frontend(api_endpoint: str) -> None:
     """Read index.html, inject the API endpoint, and upload to S3."""
     print("  Reading frontend/index.html...")
-    with open("frontend/index.html", "r") as f:
+    with open("frontend/index.html", "r", encoding="utf-8") as f:
         html = f.read()
 
     # Replace placeholder with actual endpoint
