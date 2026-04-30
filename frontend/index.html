@@ -714,6 +714,7 @@ const chatContainer = document.getElementById('chat-container');
 const questionInput = document.getElementById('question-input');
 const submitBtn = document.getElementById('submit-btn');
 let hasAsked = false;
+let submitInProgress = false;
 
 function scrollChatToBottom() {
     const chat = document.getElementById('chat-container');
@@ -996,7 +997,7 @@ function renderAnswer(container, rawText) {
 }
 
 async function handleSubmit(e) {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     const question = questionInput.value.trim();
     if (!question) return;
 
@@ -1004,6 +1005,9 @@ async function handleSubmit(e) {
         document.getElementById('welcome').style.display = 'none';
         hasAsked = true;
     }
+
+    if (submitInProgress) return;
+    submitInProgress = true;
 
     addMessage('user', question);
     questionInput.value = '';
@@ -1137,6 +1141,7 @@ async function handleSubmit(e) {
             addMessage('error', 'Network error: ' + err.message + '. Check that the API endpoint is configured.');
         }
     } finally {
+        submitInProgress = false;
         clearTimeout(timeoutId);
         submitBtn.disabled = false;
         questionInput.focus();
