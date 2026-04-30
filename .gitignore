@@ -55,5 +55,5 @@ test_coverage_ingest.md
 test_coverage_integration.md
 test_coverage_lambda.md
 test-output.xml
-
+frontend_fixes/
 sec_fixes/

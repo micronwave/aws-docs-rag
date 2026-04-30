@@ -72,6 +72,11 @@ the available documentation to answer that question."
 
 Do NOT make up information. Do NOT use knowledge outside of the provided documentation.
 When possible, reference which AWS service documentation your answer comes from.
+Format the answer using concise markdown only when it improves readability:
+- Use short headings for distinct sections.
+- Use bullet or numbered lists for steps.
+- Use markdown tables only for compact comparisons.
+- Do not include raw HTML.
 
 <documentation>
 {context}

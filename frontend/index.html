@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='2' fill='%23003366'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='Courier New,monospace' font-weight='bold' font-size='20' fill='%23FFCC00'>A</text><rect x='2' y='26' width='28' height='4' rx='1' fill='%23CC8800'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='2' fill='%23003366'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='Courier New,monospace' font-weight='bold' font-size='20' fill='%23FFCC00'>R</text><rect x='2' y='26' width='28' height='4' rx='1' fill='%23CC8800'/></svg>">
 <meta name="description" content="AWS Docs RAG — semantic search over AWS documentation, grounded answers via Claude.">
 <title>AWS Docs RAG — Aaron Altergott</title>
 <style>
@@ -11,7 +11,7 @@
 html,body{height:100%;}
 body{
   font-family:Verdana,Tahoma,Geneva,sans-serif;
-  font-size:14px;
+  font-size:15px;
   color:#222;
   background:#2B3A4A;
   background-image:url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23384d61' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 5v-1zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
@@ -65,7 +65,7 @@ a:hover{color:#FF6600;}
   animation:continentDrift 3s linear infinite;
 }
 .header-h1{
-  font-family:Verdana,Tahoma,sans-serif;font-size:22px;font-weight:bold;
+  font-family:Verdana,Tahoma,sans-serif;font-size:24px;font-weight:bold;
   color:#fff;letter-spacing:1px;text-shadow:1px 2px 4px rgba(0,0,0,.5);margin:0;
 }
 .header-subtitle{
@@ -183,19 +183,29 @@ a:hover{color:#FF6600;}
 }
 .content-inner{
   flex:1;display:flex;flex-direction:column;
-  padding:22px 30px;max-width:900px;width:100%;
-  overflow-y:auto;min-height:0;
+  padding:28px 36px;max-width:980px;width:100%;
+  margin:0 auto;overflow-y:auto;min-height:0;
 }
 .content-inner.section-in{animation:sectionFade .2s ease forwards;}
 
 /* Sections */
 [data-section]{display:none;}
-[data-section="ask"]{display:flex;flex-direction:column;flex:1;min-height:0;}
-[data-section="about"],[data-section="architecture"]{display:block;}
+[data-section].section-active{animation:sectionFade .2s ease forwards;}
+[data-section="ask"].section-active{display:flex;flex-direction:column;flex:1;min-height:0;}
+[data-section="about"].section-active,
+[data-section="architecture"].section-active{display:block;}
 
 /* Section heading */
+.page-kicker{
+  font-family:'Courier New',monospace;
+  font-size:12px;
+  color:#003355;
+  text-transform:uppercase;
+  letter-spacing:0;
+  margin-bottom:4px;
+}
 .section-heading{
-  font-family:Verdana,Tahoma,sans-serif;font-size:18px;font-weight:bold;
+  font-family:Verdana,Tahoma,sans-serif;font-size:22px;font-weight:bold;
   color:#0d3d7c;padding-bottom:6px;border-bottom:2px solid #CC8800;
   margin-bottom:16px;margin-top:0;
   display:flex;align-items:center;gap:9px;
@@ -206,11 +216,12 @@ a:hover{color:#FF6600;}
   flex:1;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:14px;
   padding:8px 0 14px;
+  max-width:900px;width:100%;margin:0 auto;
 }
 #welcome{padding:8px 0 16px;}
-.welcome-intro{font-size:14px;color:#333;margin-bottom:16px;line-height:1.7;}
+.welcome-intro{font-size:16px;color:#333;margin-bottom:16px;line-height:1.7;}
 .welcome-examples-title{
-  font-size:13px;font-weight:bold;color:#0d3d7c;
+  font-size:14px;font-weight:bold;color:#0d3d7c;
   text-transform:uppercase;letter-spacing:1px;
   margin-bottom:10px;font-family:Verdana,sans-serif;
   border-bottom:1px solid #aabbcc;padding-bottom:5px;
@@ -221,7 +232,7 @@ a:hover{color:#FF6600;}
   border:1px solid #aabbcc;
   padding:10px 14px;cursor:pointer;
   display:flex;align-items:center;gap:8px;
-  font-family:Verdana,sans-serif;font-size:13px;color:#0d3d7c;
+  font-family:Verdana,sans-serif;font-size:15px;color:#0d3d7c;
   text-align:left;width:100%;
   transition:background .1s,border-color .2s;
 }
@@ -240,7 +251,7 @@ a:hover{color:#FF6600;}
 
 .message.user{
   background:#0a0f14;color:#33FF33;
-  font-family:'Courier New',monospace;font-size:13px;
+  font-family:'Courier New',monospace;font-size:14px;
   padding:10px 14px;border:1px solid #1a3a1a;
   white-space:pre-wrap;word-break:break-word;line-height:1.5;
 }
@@ -255,17 +266,37 @@ a:hover{color:#FF6600;}
   font-family:'Courier New',monospace;font-size:11px;font-weight:bold;
   letter-spacing:1px;padding:4px 12px;
   display:flex;align-items:center;justify-content:space-between;
+  gap:12px;
 }
 .assistant-strip .meta{color:#88AACC;font-weight:normal;}
 .assistant-body{padding:14px 18px;}
 .message.assistant .answer{
-  font-family:Verdana,sans-serif;font-size:13px;color:#222;
+  font-family:Verdana,sans-serif;font-size:15px;color:#222;
   white-space:pre-wrap;line-height:1.7;
 }
+.message.assistant .answer.answer-rendered{white-space:normal;}
+.answer-rendered{font-family:Verdana,sans-serif;font-size:15px;color:#222;line-height:1.75;}
+.answer-rendered h3,
+.answer-rendered h4,
+.answer-rendered h5{color:#0d3d7c;margin:10px 0 6px;font-weight:bold;}
+.answer-rendered h3{font-size:18px;border-bottom:1px solid #aabbcc;padding-bottom:4px;}
+.answer-rendered h4{font-size:16px;}
+.answer-rendered h5{font-size:15px;}
+.answer-rendered p{margin:0 0 10px;}
+.answer-rendered ul,
+.answer-rendered ol{margin:6px 0 12px 22px;}
+.answer-rendered li{margin:4px 0;}
+.answer-rendered table{border-collapse:collapse;width:100%;margin:10px 0 14px;font-size:14px;}
+.answer-rendered th,
+.answer-rendered td{border:1px solid #aabbcc;padding:6px 8px;text-align:left;vertical-align:top;}
+.answer-rendered th{background:#ccd9e8;color:#003355;font-weight:bold;}
+.answer-rendered pre{background:#0a0f14;color:#33FF33;border:1px solid #1a3a1a;padding:10px 12px;overflow-x:auto;font-family:'Courier New',monospace;font-size:12px;line-height:1.55;margin:10px 0;}
+.answer-rendered code{font-family:'Courier New',monospace;background:#0a0f14;color:#FFCC00;padding:1px 4px;}
+.answer-rendered pre code{background:transparent;color:inherit;padding:0;}
 
 .sources{
   border-top:1px solid #aabbcc;padding:10px 18px 14px;
-  font-family:Verdana,sans-serif;font-size:12px;color:#003355;
+  font-family:Verdana,sans-serif;font-size:13px;color:#003355;
 }
 .sources strong{
   display:block;color:#0d3d7c;font-size:11px;
@@ -274,12 +305,43 @@ a:hover{color:#FF6600;}
   margin-bottom:6px;
 }
 .sources strong::before{content:'▪ ';color:#CC8800;}
-.sources a{
-  color:#0033CC;text-decoration:underline;word-break:break-all;
-  font-family:'Courier New',monospace;font-size:12px;
+.source-list{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+.source-card{
+  display:grid;
+  grid-template-columns:auto minmax(90px,150px) minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  background:#edf3f8;
+  border:1px solid #aabbcc;
+  padding:6px 8px;
 }
-.sources a:hover{color:#FF6600;}
-.sources a::before{content:'► ';color:#CC8800;text-decoration:none;display:inline-block;}
+.source-index{
+  font-family:'Courier New',monospace;
+  font-size:11px;
+  color:#FFCC00;
+  background:#0d3d7c;
+  padding:1px 5px;
+}
+.source-host{
+  font-family:'Courier New',monospace;
+  font-size:12px;
+  color:#003355;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.source-link{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family:'Courier New',monospace;
+  font-size:12px;
+}
+a.source-link{
+  color:#0033CC;text-decoration:underline;
+}
+a.source-link:hover{color:#FF6600;}
 
 .message.error{
   background:#333;color:#FFCC00;border:1px solid #CC8800;
@@ -298,6 +360,25 @@ a:hover{color:#FF6600;}
   content:'';display:inline-block;width:18px;text-align:left;color:#33FF33;
   animation:loadingDots 1.5s steps(4,end) infinite;
 }
+.loading-title{color:#88AACC;margin-bottom:7px;}
+.loading-stages{display:flex;flex-wrap:wrap;gap:6px;}
+.loading-stages span{
+  border:1px solid #1a3a5a;
+  background:#07131f;
+  color:#88AACC;
+  padding:2px 6px;
+  font-family:'Courier New',monospace;
+  font-size:11px;
+}
+.loading-stages span:nth-child(1){animation:loadingStage 5s linear infinite;animation-delay:0s;}
+.loading-stages span:nth-child(2){animation:loadingStage 5s linear infinite;animation-delay:1s;}
+.loading-stages span:nth-child(3){animation:loadingStage 5s linear infinite;animation-delay:2s;}
+.loading-stages span:nth-child(4){animation:loadingStage 5s linear infinite;animation-delay:3s;}
+.loading-stages span:nth-child(5){animation:loadingStage 5s linear infinite;animation-delay:4s;}
+@keyframes loadingStage{
+  0%,16%{color:#FFCC00;border-color:#CC8800;box-shadow:0 0 5px rgba(255,204,0,.5);}
+  17%,100%{color:#88AACC;border-color:#1a3a5a;box-shadow:none;}
+}
 
 /* ── Input area ── */
 #input-area{
@@ -305,6 +386,7 @@ a:hover{color:#FF6600;}
   background:#ccd9e8;
   padding:12px 14px;margin-top:auto;
   flex-shrink:0;
+  max-width:900px;width:100%;margin-left:auto;margin-right:auto;
 }
 #input-area form{
   display:flex;align-items:center;gap:8px;
@@ -315,7 +397,7 @@ a:hover{color:#FF6600;}
   color:#0d3d7c;flex-shrink:0;
 }
 .form-input{
-  font-family:Verdana,sans-serif;font-size:13px;
+  font-family:Verdana,sans-serif;font-size:15px;
   padding:5px 7px;border:2px inset #BBBBBB;
   background:#F5F5F5;width:100%;box-sizing:border-box;
   flex:1;min-width:0;
@@ -323,21 +405,28 @@ a:hover{color:#FF6600;}
 .form-input:focus{outline:1px solid #5588BB;}
 .submit-btn{
   background:#E0E0E0;color:#003366;font-family:Verdana,sans-serif;
-  font-size:13px;font-weight:bold;padding:6px 22px;
+  font-size:15px;font-weight:bold;padding:6px 22px;
   border:2px outset #CCCCCC;cursor:pointer;flex-shrink:0;
 }
 .submit-btn:hover{border-style:inset;background:#D0D0D0;}
 .submit-btn:disabled{opacity:.5;cursor:not-allowed;border-style:outset;background:#E0E0E0;}
 
 /* ── About / Architecture sections ── */
-.about-body p{margin-bottom:10px;font-size:14px;line-height:1.7;color:#333;}
-.tech-table{border-collapse:collapse;margin:10px 0 14px;font-size:13px;}
+.about-body,.architecture-body{max-width:900px;margin:0 auto;}
+.about-body p{margin-bottom:10px;font-size:16px;line-height:1.7;color:#333;}
+.architecture-lede{margin-bottom:12px;font-size:16px;color:#333;}
+.architecture-notes{margin-top:8px;font-size:15px;color:#333;line-height:1.7;}
+.inline-code{
+  font-family:'Courier New',monospace;background:#0a0f14;color:#FFCC00;
+  padding:1px 4px;font-size:15px;
+}
+.tech-table{border-collapse:collapse;margin:10px 0 14px;font-size:15px;}
 .tech-table td{padding:3px 14px 3px 0;vertical-align:top;}
 .tech-table td.k{font-weight:bold;color:#003355;white-space:nowrap;}
 .tech-table td.v{color:#333;}
 .terminal-block{
   background:#0a0f14;color:#FFCC00;
-  font-family:'Courier New',monospace;font-size:11px;
+  font-family:'Courier New',monospace;font-size:13px;
   padding:11px 14px;border:1px solid #1a3a1a;
   margin:10px 0;overflow-x:auto;white-space:pre;line-height:1.5;
 }
@@ -369,17 +458,22 @@ a:hover{color:#FF6600;}
   .sidebar-links-row{display:flex;gap:16px;padding:8px 12px;border-top:1px solid #004d80;width:100%;background:#002d4d;}
   .sidebar-links-row a{color:#88BBDD;font-size:11px;text-decoration:none;}
   .sidebar-links-row a::before{content:'» ';color:#CC8800;}
-  .content-inner{padding:14px 14px;max-width:100%;}
+  .content-inner{padding:18px 16px;max-width:100%;}
   .body-row{flex-direction:column;}
   .about-quick{flex-direction:column;gap:0;}
 }
 @media(max-width:480px){
-  .header-h1{font-size:17px;}
+  .header-h1{font-size:18px;}
   .header-wrap{flex-direction:column;align-items:flex-start;gap:6px;padding:12px 14px;}
   .header-badges{margin-left:0;}
-  .section-heading{font-size:16px;}
+  .section-heading{font-size:19px;}
   .input-prompt{display:none;}
-  .submit-btn{padding:6px 14px;}
+  #input-area{padding:10px;}
+  #input-area form{gap:6px;}
+  .submit-btn{padding:6px 10px;}
+  .source-card{grid-template-columns:auto minmax(0,1fr);}
+  .source-host{display:none;}
+  .source-link{font-size:12px;}
 }
 </style>
 </head>
@@ -466,7 +560,8 @@ a:hover{color:#FF6600;}
       <div class="content-inner section-in">
 
         <!-- Ask -->
-        <div data-section="ask">
+        <div data-section="ask" class="section-active">
+          <div class="page-kicker">Interactive Query</div>
           <h2 class="section-heading">▪ Ask</h2>
 
           <div id="chat-container">
@@ -505,6 +600,7 @@ a:hover{color:#FF6600;}
 
         <!-- About -->
         <div data-section="about">
+          <div class="page-kicker">System Overview</div>
           <h2 class="section-heading">▪ About</h2>
           <div class="about-body">
             <p>A full-stack RAG (Retrieval-Augmented Generation) system that answers questions about AWS services using actual AWS documentation as its knowledge base. Semantic search over indexed docs, grounded answers via Claude, source citations back to original pages.</p>
@@ -534,8 +630,10 @@ a:hover{color:#FF6600;}
 
         <!-- Architecture -->
         <div data-section="architecture">
+          <div class="page-kicker">Request Flow</div>
           <h2 class="section-heading">▪ Architecture</h2>
-          <p style="margin-bottom:12px;font-size:14px;color:#333;">End-to-end request flow from browser to answer.</p>
+          <div class="architecture-body">
+          <p class="architecture-lede">End-to-end request flow from browser to answer.</p>
           <pre class="terminal-block">User → CloudFront → API Gateway → Lambda
                             ├── Embed question (Titan v2 via Bedrock)
                             ├── Search Pinecone (top 5 chunks)
@@ -544,11 +642,12 @@ a:hover{color:#FF6600;}
                             └── Return response + sources</pre>
 
           <div class="welcome-examples-title" style="margin-top:18px;">▪ Notes</div>
-          <p style="margin-top:8px;font-size:13px;color:#333;line-height:1.7;">
+          <p class="architecture-notes">
             CloudFront uses Origin Access Control (OAC) — the S3 bucket blocks all public access and serves only signed CloudFront requests.
-            The Lambda enforces a strict <code style="font-family:'Courier New',monospace;background:#0a0f14;color:#FFCC00;padding:1px 4px;">Access-Control-Allow-Origin</code> header pinned to the CloudFront domain.
-            Question text is sanitized before embedding, and source URLs are validated as <code style="font-family:'Courier New',monospace;background:#0a0f14;color:#FFCC00;padding:1px 4px;">http(s)://</code> before being rendered as clickable links.
+            The Lambda enforces a strict <code class="inline-code">Access-Control-Allow-Origin</code> header pinned to the CloudFront domain.
+            Question text is sanitized before embedding, and source URLs are validated as <code class="inline-code">http(s)://</code> before being rendered as clickable links.
           </p>
+          </div>
         </div>
 
       </div>
@@ -576,14 +675,10 @@ function askQuestion(text) {
     handleSubmit(new Event('submit'));
 }
 
-function addMessage(type, content, isHtml) {
+function addMessage(type, content) {
     const div = document.createElement('div');
     div.className = 'message ' + type;
-    if (isHtml === true) {
-        div.innerHTML = content;
-    } else {
-        div.textContent = content;
-    }
+    div.textContent = content;
     chatContainer.appendChild(div);
     chatContainer.scrollTop = chatContainer.scrollHeight;
     return div;
@@ -628,6 +723,220 @@ async function readResponseBody(resp) {
     }
 }
 
+function clearNode(container) {
+    container.textContent = '';
+    if (Array.isArray(container.children)) {
+        container.children.length = 0;
+    }
+    while (container.firstChild && typeof container.removeChild === 'function') {
+        container.removeChild(container.firstChild);
+    }
+}
+
+function isValidHttpUrl(text) {
+    try {
+        const url = new URL(text);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (err) {
+        return false;
+    }
+}
+
+function getSourceHost(text) {
+    if (!isValidHttpUrl(text)) {
+        return 'Unverified source';
+    }
+    try {
+        return new URL(text).hostname;
+    } catch (err) {
+        return 'Unverified source';
+    }
+}
+
+function appendMaybeLink(parent, text) {
+    if (!text) return;
+    if (isValidHttpUrl(text)) {
+        const a = document.createElement('a');
+        a.href = text;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = text;
+        parent.appendChild(a);
+        return;
+    }
+    parent.appendChild(document.createTextNode(text));
+}
+
+function appendTextWithLinks(parent, text) {
+    const parts = String(text).split(/(https?:\/\/[^\s<>"']+)/g);
+    parts.forEach(function (part) {
+        appendMaybeLink(parent, part);
+    });
+}
+
+function appendTextWithInlineCode(parent, text) {
+    const parts = String(text).split(/(`[^`]+`)/g);
+    parts.forEach(function (part) {
+        if (!part) return;
+        if (part.length > 1 && part[0] === '`' && part[part.length - 1] === '`') {
+            const code = document.createElement('code');
+            code.textContent = part.slice(1, -1);
+            parent.appendChild(code);
+        } else {
+            appendTextWithLinks(parent, part);
+        }
+    });
+}
+
+function appendParagraph(container, lines) {
+    const text = lines.map(function (line) { return line.trim(); }).join(' ').trim();
+    if (!text) return;
+    const p = document.createElement('p');
+    appendTextWithInlineCode(p, text);
+    container.appendChild(p);
+}
+
+function splitTableRow(line) {
+    let trimmed = line.trim();
+    if (trimmed[0] === '|') trimmed = trimmed.slice(1);
+    if (trimmed[trimmed.length - 1] === '|') trimmed = trimmed.slice(0, -1);
+    return trimmed.split('|').map(function (cell) { return cell.trim(); });
+}
+
+function isPipeRow(line) {
+    const trimmed = line.trim();
+    return trimmed.indexOf('|') !== -1 && trimmed[0] === '|' && trimmed[trimmed.length - 1] === '|';
+}
+
+function isTableStart(lines, index) {
+    if (index + 1 >= lines.length || !isPipeRow(lines[index]) || !isPipeRow(lines[index + 1])) {
+        return false;
+    }
+    const headers = splitTableRow(lines[index]);
+    const separators = splitTableRow(lines[index + 1]);
+    return headers.length > 0 && headers.length === separators.length && separators.every(function (cell) {
+        return /^:?-{3,}:?$/.test(cell.replace(/\s+/g, ''));
+    });
+}
+
+function parseTable(lines, index, container) {
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    splitTableRow(lines[index]).forEach(function (cell) {
+        const th = document.createElement('th');
+        appendTextWithInlineCode(th, cell);
+        headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    let i = index + 2;
+    while (i < lines.length && isPipeRow(lines[i])) {
+        const row = document.createElement('tr');
+        splitTableRow(lines[i]).forEach(function (cell) {
+            const td = document.createElement('td');
+            appendTextWithInlineCode(td, cell);
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+        i++;
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+    return i;
+}
+
+function parseList(lines, index, container) {
+    const ordered = /^\s*\d+\.\s+/.test(lines[index]);
+    const list = document.createElement(ordered ? 'ol' : 'ul');
+    let i = index;
+    const pattern = ordered ? /^\s*\d+\.\s+(.+)$/ : /^\s*[-*]\s+(.+)$/;
+    while (i < lines.length && pattern.test(lines[i])) {
+        const match = lines[i].match(pattern);
+        const li = document.createElement('li');
+        appendTextWithInlineCode(li, match ? match[1] : lines[i].trim());
+        list.appendChild(li);
+        i++;
+    }
+    container.appendChild(list);
+    return i;
+}
+
+function renderAnswer(container, rawText) {
+    clearNode(container);
+    addClass(container, 'answer-rendered');
+
+    const lines = String(rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    let i = 0;
+    let paragraph = [];
+
+    function flushParagraph() {
+        appendParagraph(container, paragraph);
+        paragraph = [];
+    }
+
+    while (i < lines.length) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (!trimmed) {
+            flushParagraph();
+            i++;
+            continue;
+        }
+
+        if (/^```/.test(trimmed)) {
+            flushParagraph();
+            i++;
+            const codeLines = [];
+            while (i < lines.length && !/^```/.test(lines[i].trim())) {
+                codeLines.push(lines[i]);
+                i++;
+            }
+            if (i < lines.length) i++;
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.textContent = codeLines.join('\n');
+            pre.appendChild(code);
+            container.appendChild(pre);
+            continue;
+        }
+
+        const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+            flushParagraph();
+            const h = document.createElement('h' + (heading[1].length + 2));
+            appendTextWithInlineCode(h, heading[2]);
+            container.appendChild(h);
+            i++;
+            continue;
+        }
+
+        if (isTableStart(lines, i)) {
+            flushParagraph();
+            i = parseTable(lines, i, container);
+            continue;
+        }
+
+        if (/^\s*(?:[-*]|\d+\.)\s+/.test(line)) {
+            flushParagraph();
+            i = parseList(lines, i, container);
+            continue;
+        }
+
+        paragraph.push(line);
+        i++;
+    }
+
+    flushParagraph();
+
+    if (!container.children || container.children.length === 0) {
+        appendParagraph(container, [String(rawText || '')]);
+    }
+}
+
 async function handleSubmit(e) {
     e.preventDefault();
     const question = questionInput.value.trim();
@@ -642,7 +951,8 @@ async function handleSubmit(e) {
     questionInput.value = '';
 
     submitBtn.disabled = true;
-    const loadingMsg = addMessage('loading', '<span class="loading-dots">Searching docs and generating answer</span>', true);
+    const loadingMsg = addMessage('loading', '');
+    loadingMsg.innerHTML = '<div class="loading-title"><span class="loading-dots">Processing RAG request</span></div><div class="loading-stages"><span>Question</span><span>Embed</span><span>Search</span><span>Generate</span><span>Sources</span></div>';
 
     const controller = new AbortController();
     const timeoutId = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
@@ -689,7 +999,10 @@ async function handleSubmit(e) {
             return;
         }
 
-        const msgDiv = addMessage('assistant', '', true);
+        const uniqueUrls = normalizeSources(data.sources);
+        const sourceCount = uniqueUrls.length;
+        const retrievalLabel = sourceCount === 1 ? '1 source' : sourceCount + ' sources';
+        const msgDiv = addMessage('assistant', '');
 
         const strip = document.createElement('div');
         strip.className = 'assistant-strip';
@@ -697,7 +1010,7 @@ async function handleSubmit(e) {
         stripLeft.textContent = '▪ ANSWER';
         const stripRight = document.createElement('span');
         stripRight.className = 'meta';
-        stripRight.textContent = 'claude-sonnet-4-6';
+        stripRight.textContent = 'claude-sonnet-4-6 | ' + retrievalLabel;
         strip.appendChild(stripLeft);
         strip.appendChild(stripRight);
         msgDiv.appendChild(strip);
@@ -706,38 +1019,53 @@ async function handleSubmit(e) {
         body.className = 'assistant-body';
         const answerDiv = document.createElement('div');
         answerDiv.className = 'answer';
-        answerDiv.textContent = data.answer;
+        renderAnswer(answerDiv, data.answer);
         body.appendChild(answerDiv);
         msgDiv.appendChild(body);
 
-        const uniqueUrls = normalizeSources(data.sources);
         if (uniqueUrls.length > 0) {
             const sourcesDiv = document.createElement('div');
             sourcesDiv.className = 'sources';
             const strong = document.createElement('strong');
             strong.textContent = 'Sources:';
             sourcesDiv.appendChild(strong);
-            sourcesDiv.appendChild(document.createElement('br'));
+
+            const sourceList = document.createElement('div');
+            sourceList.className = 'source-list';
 
             uniqueUrls.forEach(function (url, i) {
-                if (i > 0) sourcesDiv.appendChild(document.createElement('br'));
-                const text = document.createTextNode((i + 1) + '. ');
-                sourcesDiv.appendChild(text);
-                const isValidUrl = /^https?:\/\/.+/.test(url);
-                if (isValidUrl) {
+                const sourceCard = document.createElement('div');
+                sourceCard.className = 'source-card';
+
+                const sourceIndex = document.createElement('span');
+                sourceIndex.className = 'source-index';
+                sourceIndex.textContent = String(i + 1).padStart(2, '0');
+                sourceCard.appendChild(sourceIndex);
+
+                const sourceHost = document.createElement('span');
+                sourceHost.className = 'source-host';
+                sourceHost.textContent = getSourceHost(url);
+                sourceCard.appendChild(sourceHost);
+
+                if (isValidHttpUrl(url)) {
                     const a = document.createElement('a');
+                    a.className = 'source-link';
                     a.href = url;
                     a.target = '_blank';
                     a.rel = 'noopener noreferrer';
                     a.textContent = url;
-                    sourcesDiv.appendChild(a);
+                    sourceCard.appendChild(a);
                 } else {
                     const span = document.createElement('span');
+                    span.className = 'source-link';
                     span.textContent = url;
-                    sourcesDiv.appendChild(span);
+                    sourceCard.appendChild(span);
                 }
+
+                sourceList.appendChild(sourceCard);
             });
 
+            sourcesDiv.appendChild(sourceList);
             msgDiv.appendChild(sourcesDiv);
         }
 
@@ -755,22 +1083,40 @@ async function handleSubmit(e) {
     }
 }
 
+function removeClass(el, className) {
+    if (el.classList && typeof el.classList.remove === 'function') {
+        el.classList.remove(className);
+    } else {
+        el.className = el.className.replace(new RegExp('\\s*\\b' + className + '\\b', 'g'), '');
+    }
+}
+
+function addClass(el, className) {
+    if (el.classList && typeof el.classList.add === 'function') {
+        el.classList.add(className);
+    } else if (!new RegExp('\\b' + className + '\\b').test(el.className)) {
+        el.className = (el.className + ' ' + className).trim();
+    }
+}
+
 function navigate(name, btnEl) {
     if (typeof document.querySelectorAll !== 'function') return;
     const sections = document.querySelectorAll('[data-section]');
     for (let i = 0; i < sections.length; i++) {
-        sections[i].style.display = 'none';
+        removeClass(sections[i], 'section-active');
     }
-    const target = document.querySelector('[data-section="' + name + '"]');
+    const target = typeof document.querySelector === 'function'
+        ? document.querySelector('[data-section="' + name + '"]')
+        : null;
     if (target) {
-        target.style.display = '';
+        addClass(target, 'section-active');
     }
     const buttons = document.querySelectorAll('.nav-btn');
     for (let i = 0; i < buttons.length; i++) {
-        buttons[i].className = buttons[i].className.replace(/\s*\bactive\b/g, '');
+        removeClass(buttons[i], 'active');
     }
     if (btnEl) {
-        btnEl.className = (btnEl.className + ' active').trim();
+        addClass(btnEl, 'active');
     }
 }
 
