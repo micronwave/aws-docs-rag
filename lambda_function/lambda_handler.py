@@ -35,7 +35,10 @@ def embed_query(text: str) -> list[float]:
         accept="application/json",
         body=body,
     )
-    return json.loads(resp["body"].read())["embedding"]
+    embedding = json.loads(resp["body"].read())["embedding"]
+    if not isinstance(embedding, list) or len(embedding) != 1024:
+        raise ValueError(f"Expected embedding dimension 1024, got {len(embedding)}")
+    return embedding
 
 
 def search_pinecone(query_vector: list[float]) -> list[dict]:

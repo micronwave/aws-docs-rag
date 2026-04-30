@@ -54,7 +54,7 @@ Every answer is backed by retrieved documentation.
 ## Project Structure
 
 ```
-aws-rag-project/
+aws-docs-rag/
 ├── scripts/
 │   ├── 01_ingest_docs.py          # Scrape & clean AWS documentation
 │   ├── 02_chunk_docs.py           # Split docs into overlapping chunks
@@ -108,8 +108,8 @@ aws-rag-project/
 
 ```bash
 # Clone the repo
-git clone https://github.com/micronwave/aws-rag-project.git
-cd aws-rag-project
+git clone https://github.com/micronwave/aws-docs-rag.git
+cd aws-docs-rag
 
 # Set up Python environment
 python3 -m venv venv
@@ -120,6 +120,7 @@ pip install -r requirements.txt
 # Configure environment variables
 cp set_env.sh set_env.local.sh    # Edit with your Pinecone key + AWS account ID
 source set_env.local.sh
+export ALLOWED_ORIGIN=https://your-cloudfront-domain.example.com
 
 # Create S3 bucket
 aws s3 mb s3://$S3_BUCKET_NAME --region us-east-2
@@ -137,6 +138,11 @@ python scripts/05_test_rag_local.py "How do I create an S3 bucket?"
 python scripts/06_deploy_lambda.py
 python scripts/07_deploy_api_gateway.py
 python scripts/08_deploy_frontend.py
+```
+
+Before running `scripts/06_deploy_lambda.py` and `scripts/07_deploy_api_gateway.py`,
+set `ALLOWED_ORIGIN` to the CloudFront URL that will serve the frontend. Both
+deploy scripts read the same environment variable.
 
 ---
 

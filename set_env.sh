@@ -17,6 +17,9 @@ export S3_BUCKET_NAME=aws-rag-docs-$(aws sts get-caller-identity --query Account
 export PINECONE_API_KEY=your-pinecone-api-key-here
 export PINECONE_INDEX_NAME=aws-rag-index
 
+# Frontend origin — set this to your CloudFront URL before deploying 06/07
+export ALLOWED_ORIGIN=https://your-cloudfront-domain.example.com
+
 # Bedrock model IDs
 export EMBEDDING_MODEL_ID=amazon.titan-embed-text-v2:0
 export LLM_MODEL_ID=us.anthropic.claude-sonnet-4-6
@@ -26,6 +29,7 @@ echo "Environment variables set:"
 echo "  AWS_DEFAULT_REGION  = $AWS_DEFAULT_REGION"
 echo "  S3_BUCKET_NAME      = $S3_BUCKET_NAME"
 echo "  PINECONE_INDEX_NAME = $PINECONE_INDEX_NAME"
+echo "  ALLOWED_ORIGIN      = $ALLOWED_ORIGIN"
 echo "  EMBEDDING_MODEL_ID  = $EMBEDDING_MODEL_ID"
 echo "  LLM_MODEL_ID        = $LLM_MODEL_ID"
 echo ""

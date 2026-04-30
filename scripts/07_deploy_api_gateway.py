@@ -8,8 +8,15 @@ Run: python scripts/07_deploy_api_gateway.py
 
 import os
 import json
+import sys
 import boto3
 from botocore.exceptions import ClientError
+
+SCRIPT_DIR = os.path.dirname(__file__)
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from deploy_config import get_allowed_origin
 
 # ─── Configuration ────────────────────────────────────────────────────
 REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
@@ -91,6 +98,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
 
     if is_cors:
         # OPTIONS method returns CORS headers directly (mock integration)
+        allowed_origin = get_allowed_origin()
         apigw.put_integration(
             restApiId=api_id,
             resourceId=resource_id,
@@ -117,7 +125,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
             responseParameters={
                 "method.response.header.Access-Control-Allow-Headers": "'Content-Type'",
                 "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
-                "method.response.header.Access-Control-Allow-Origin": "'https://d3d0zch3u8ca61.cloudfront.net'",
+                "method.response.header.Access-Control-Allow-Origin": f"'{allowed_origin}'",
             },
             responseTemplates={"application/json": ""},
         )
@@ -163,8 +171,6 @@ def add_lambda_permission(api_id: str, lambda_arn: str):
     print(f"  [OK] Lambda invoke permission granted to API Gateway")
 
 
-CORS_ORIGIN = "https://d3d0zch3u8ca61.cloudfront.net"
-
 # API Gateway error response types that need CORS headers so the browser
 # can read the error instead of showing a generic "Failed to fetch".
 GATEWAY_ERROR_TYPES = [
@@ -180,12 +186,13 @@ GATEWAY_ERROR_TYPES = [
 
 def setup_gateway_responses(api_id: str) -> None:
     """Add CORS headers to API Gateway-generated error responses."""
+    cors_origin = get_allowed_origin()
     for response_type in GATEWAY_ERROR_TYPES:
         apigw.put_gateway_response(
             restApiId=api_id,
             responseType=response_type,
             responseParameters={
-                "gatewayresponse.header.Access-Control-Allow-Origin": f"'{CORS_ORIGIN}'",
+                "gatewayresponse.header.Access-Control-Allow-Origin": f"'{cors_origin}'",
                 "gatewayresponse.header.Access-Control-Allow-Headers": "'Content-Type'",
             },
         )

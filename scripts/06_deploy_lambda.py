@@ -13,8 +13,15 @@ import subprocess
 import shutil
 import tempfile
 import zipfile
+import sys
 import boto3
 from botocore.exceptions import ClientError
+
+SCRIPT_DIR = os.path.dirname(__file__)
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from deploy_config import get_allowed_origin
 
 # ─── Configuration ────────────────────────────────────────────────────
 REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
@@ -213,7 +220,7 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
         "PINECONE_INDEX_NAME": INDEX_NAME,
         "EMBEDDING_MODEL_ID": EMBEDDING_MODEL_ID,
         "LLM_MODEL_ID": LLM_MODEL_ID,
-        "ALLOWED_ORIGIN": "https://d3d0zch3u8ca61.cloudfront.net",
+        "ALLOWED_ORIGIN": get_allowed_origin(),
     }
 
     try:

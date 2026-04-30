@@ -49,3 +49,9 @@ LAMBDA_DEPLOY_AUDIT_FINDINGS.txt
 frontend_audit_fix_plan.txt
 ENV_SECRET_HYGIENE_FIX_PLAN.txt
 README_GUIDE_DEPLOYMENT_AUDIT_FINDINGS.txt
+TEST_COVERAGE_PLAN.md
+test_coverage_embeddings.md
+test_coverage_ingest.md
+test_coverage_integration.md
+test_coverage_lambda.md
+test-output.xml
