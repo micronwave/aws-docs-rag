@@ -256,11 +256,16 @@ def verify_index_state(index, expected_ids: list[str], expected_generation_id: s
     stats = index.describe_index_stats()
     total_vector_count = describe_total_vectors(stats)
     expected_total = len(expected_ids)
+    actual_dimension = get_index_field(stats, "dimension")
 
     stale_errors = []
     if total_vector_count > expected_total:
         stale_errors.append(
             f"index contains {total_vector_count} vectors but only {expected_total} were expected for this generation"
+        )
+    if actual_dimension is not None and actual_dimension != EMBEDDING_DIMENSION:
+        stale_errors.append(
+            f"index dimension is {actual_dimension!r}, expected {EMBEDDING_DIMENSION!r}"
         )
 
     missing_ids = []

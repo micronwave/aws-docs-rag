@@ -116,47 +116,53 @@ def call_claude(prompt: str) -> str:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/05_test_rag_local.py \"Your question here\"")
-        print("\nExample:")
-        print("  python scripts/05_test_rag_local.py \"How do I create an S3 bucket?\"")
+    try:
+        if len(sys.argv) < 2:
+            print("Usage: python scripts/05_test_rag_local.py \"Your question here\"")
+            print("\nExample:")
+            print("  python scripts/05_test_rag_local.py \"How do I create an S3 bucket?\"")
+            sys.exit(1)
+
+        question = sys.argv[1]
+
+        print(f"\n{'='*60}")
+        print(f"  Question: {question}")
+        print(f"{'='*60}")
+
+        # Step 1: Embed the question
+        print("\n[1/4] Generating question embedding...")
+        query_vec = embed_query(question)
+        print(f"  [OK] Generated 1024-dim vector")
+
+        # Step 2: Search Pinecone
+        print(f"\n[2/4] Searching Pinecone (top {TOP_K} results)...")
+        chunks = search_pinecone(query_vec)
+        for i, c in enumerate(chunks, 1):
+            print(f"  {i}. [{c['service']}] score={c['score']:.4f} — {c['source_url']}")
+
+        # Step 3: Build prompt
+        print(f"\n[3/4] Building prompt with {len(chunks)} context chunks...")
+        prompt = build_prompt(question, chunks)
+        print(f"  [OK] Prompt length: {len(prompt)} characters")
+
+        # Step 4: Call Claude
+        print(f"\n[4/4] Calling Claude Sonnet 4.6 via Bedrock...")
+        answer = call_claude(prompt)
+
+        print(f"\n{'='*60}")
+        print(f"  ANSWER")
+        print(f"{'='*60}")
+        print(answer)
+        print(f"\n{'='*60}")
+        print(f"  Sources:")
+        for i, c in enumerate(chunks, 1):
+            print(f"    {i}. {c['source_url']}")
+        print(f"{'='*60}\n")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        print(f"\n[ERR] {exc}")
         sys.exit(1)
-
-    question = sys.argv[1]
-
-    print(f"\n{'='*60}")
-    print(f"  Question: {question}")
-    print(f"{'='*60}")
-
-    # Step 1: Embed the question
-    print("\n[1/4] Generating question embedding...")
-    query_vec = embed_query(question)
-    print(f"  [OK] Generated 1024-dim vector")
-
-    # Step 2: Search Pinecone
-    print(f"\n[2/4] Searching Pinecone (top {TOP_K} results)...")
-    chunks = search_pinecone(query_vec)
-    for i, c in enumerate(chunks, 1):
-        print(f"  {i}. [{c['service']}] score={c['score']:.4f} — {c['source_url']}")
-
-    # Step 3: Build prompt
-    print(f"\n[3/4] Building prompt with {len(chunks)} context chunks...")
-    prompt = build_prompt(question, chunks)
-    print(f"  [OK] Prompt length: {len(prompt)} characters")
-
-    # Step 4: Call Claude
-    print(f"\n[4/4] Calling Claude Sonnet 4.6 via Bedrock...")
-    answer = call_claude(prompt)
-
-    print(f"\n{'='*60}")
-    print(f"  ANSWER")
-    print(f"{'='*60}")
-    print(answer)
-    print(f"\n{'='*60}")
-    print(f"  Sources:")
-    for i, c in enumerate(chunks, 1):
-        print(f"    {i}. {c['source_url']}")
-    print(f"{'='*60}\n")
 
 
 if __name__ == "__main__":
