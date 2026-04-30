@@ -53,6 +53,7 @@ class Node {
     this._text = '';
     this._html = '';
     this.parentNode = null;
+    this._eventListeners = {};
   }
   appendChild(child) {
     this.children.push(child);
@@ -71,6 +72,34 @@ class Node {
     });
   }
   focus() {}
+  addEventListener(type, listener) {
+    if (!this._eventListeners[type]) {
+      this._eventListeners[type] = [];
+    }
+    this._eventListeners[type].push(listener);
+  }
+  closest(selector) {
+    let node = this;
+    while (node) {
+      if (node.getAttribute && node.getAttribute('data-action') === selector.replace('[data-action=', '').replace(']', '')) {
+        return node;
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }
+  getAttribute(name) {
+    return this[name] || null;
+  }
+  setAttribute(name, value) {
+    this[name] = value;
+  }
+  querySelectorAll(selector) {
+    return [];
+  }
+  querySelector(selector) {
+    return null;
+  }
   set textContent(value) { this._text = value; }
   get textContent() { return this._text || this.children.map((child) => child.textContent || '').join(''); }
   set innerHTML(value) {
@@ -84,6 +113,7 @@ const nodes = {
   'chat-container': new Node('div'),
   'question-input': new Node('input'),
   'submit-btn': new Node('button'),
+  'clear-chat-btn': new Node('button'),
   'welcome': new Node('div'),
 };
 
@@ -151,6 +181,13 @@ const context = {
   URL,
   Promise,
   Math,
+  navigator: {
+    clipboard: {
+      writeText: function(text) {
+        return Promise.resolve();
+      }
+    }
+  },
   globalThis: null,
 };
 context.globalThis = context;
@@ -509,6 +546,75 @@ def test_destinations_include_page_kickers():
             r'<div class="page-kicker">' + re.escape(kicker) + r"</div>"
         )
         assert re.search(pattern, html) is not None
+
+
+def test_answer_actions_exist_with_sources():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "S3 stores objects.",
+                    "sources": [
+                        {"url": "https://docs.aws.amazon.com/s3"},
+                        {"url": "https://docs.aws.amazon.com/s3/latest/userguide/"},
+                    ],
+                },
+            },
+        }
+    )
+
+    assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
+    assert len(assistant_nodes) == 1
+    assistant = assistant_nodes[0]
+    
+    # Verify answer-actions div exists
+    answer_actions = [child for child in assistant["children"] if child["className"] == "answer-actions"]
+    assert len(answer_actions) == 1, "answer-actions div should exist"
+    
+    # Verify both action buttons exist
+    action_buttons = list(_walk_nodes(answer_actions[0]))
+    copy_answer_buttons = [node for node in action_buttons if node.get("className") == "answer-action" and node.get("textContent") == "Copy answer"]
+    copy_sources_buttons = [node for node in action_buttons if node.get("className") == "answer-action" and node.get("textContent") == "Copy sources"]
+    assert len(copy_answer_buttons) >= 1, "Copy answer button should exist"
+    assert len(copy_sources_buttons) >= 1, "Copy sources button should exist"
+
+
+def test_answer_actions_exist_without_sources():
+    result = _run_frontend_case(
+        {
+            "question": "What is S3?",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "S3 stores objects.",
+                    "sources": [],
+                },
+            },
+        }
+    )
+
+    assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
+    assert len(assistant_nodes) == 1
+    assistant = assistant_nodes[0]
+    
+    # Verify answer-actions div exists even without sources
+    answer_actions = [child for child in assistant["children"] if child["className"] == "answer-actions"]
+    assert len(answer_actions) == 1, "answer-actions div should exist even when no sources"
+    
+    # Verify both action buttons exist
+    action_buttons = list(_walk_nodes(answer_actions[0]))
+    copy_answer_buttons = [node for node in action_buttons if node.get("className") == "answer-action" and node.get("textContent") == "Copy answer"]
+    copy_sources_buttons = [node for node in action_buttons if node.get("className") == "answer-action" and node.get("textContent") == "Copy sources"]
+    assert len(copy_answer_buttons) >= 1, "Copy answer button should exist even without sources"
+    assert len(copy_sources_buttons) >= 1, "Copy sources button should exist even without sources"
 
 
 def test_static_template_invariants():
