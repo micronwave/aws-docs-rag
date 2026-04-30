@@ -293,7 +293,8 @@ a:hover{color:#FF6600;}
 .answer-rendered h3{font-size:18px;border-bottom:1px solid #aabbcc;padding-bottom:4px;}
 .answer-rendered h4{font-size:16px;}
 .answer-rendered h5{font-size:15px;}
-.answer-rendered p{margin:0 0 10px;}
+.answer-rendered p{margin:0 0 12px;}
+.answer-rendered p:last-child{margin-bottom:0;}
 .answer-rendered ul,
 .answer-rendered ol{margin:6px 0 12px 22px;}
 .answer-rendered li{margin:4px 0;}
@@ -316,7 +317,7 @@ a:hover{color:#FF6600;}
   margin-bottom:6px;
 }
 .sources strong::before{content:'▪ ';color:#CC8800;}
-.source-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.source-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:8px;}
 .source-card{
   display:grid;
   grid-template-columns:auto minmax(90px,150px) minmax(0,1fr);
@@ -325,6 +326,10 @@ a:hover{color:#FF6600;}
   background:#edf3f8;
   border:1px solid #aabbcc;
   padding:6px 8px;
+}
+.source-card:hover{
+  background:#e4ecf4;
+  border-color:#8899bb;
 }
 .source-index{
   font-family:'Courier New',monospace;
