@@ -121,6 +121,50 @@ def test_crawl_summary_marks_failures_and_skipped_counts(ingest_module):
     assert summary["services"]["ec2"]["seed_failed"] is True
 
 
+def test_crawl_summary_marks_threshold_failure(ingest_module):
+    service_reports = [
+        {
+            "service": "s3",
+            "seed_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+            "pages_attempted": 4,
+            "pages_failed": 2,
+            "failed_urls": [
+                "https://docs.aws.amazon.com/AmazonS3/latest/userguide/bad-1.html",
+                "https://docs.aws.amazon.com/AmazonS3/latest/userguide/bad-2.html",
+            ],
+            "seed_failed": False,
+            "skipped_pages": [],
+        }
+    ]
+
+    summary = ingest_module.summarize_crawl_reports(service_reports)
+
+    assert summary["run_failed"] is True
+
+
+def test_ingest_main_exits_nonzero_on_crawl_failure_threshold(ingest_module, monkeypatch):
+    failed_report = {
+        "service": "s3",
+        "seed_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+        "pages_attempted": 4,
+        "pages_failed": 2,
+        "failed_urls": [
+            "https://docs.aws.amazon.com/AmazonS3/latest/userguide/bad-1.html",
+            "https://docs.aws.amazon.com/AmazonS3/latest/userguide/bad-2.html",
+        ],
+        "seed_failed": False,
+        "skipped_pages": [],
+    }
+
+    monkeypatch.setattr(ingest_module, "scrape_service", lambda *_args, **_kwargs: ([], dict(failed_report)))
+    monkeypatch.setattr(ingest_module, "write_raw_docs_manifest", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(ingest_module.os, "makedirs", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("builtins.open", lambda *_args, **_kwargs: io.StringIO())
+
+    with pytest.raises(SystemExit, match="1"):
+        ingest_module.main()
+
+
 def test_ingest_main_exits_nonzero_on_empty_corpus(ingest_module, monkeypatch):
     empty_report = {
         "service": "s3",
@@ -203,6 +247,35 @@ def test_embedding_main_exits_nonzero_on_empty_chunks(monkeypatch):
     embed_module = load_script("generate_embeddings_empty_test", "scripts/03_generate_embeddings.py")
 
     monkeypatch.setattr(embed_module, "load_chunks_from_s3", lambda: ([], {"run_id": "run-123", "documents_prefix": "chunks/run-123/"}))
+    monkeypatch.setattr(embed_module, "write_embeddings_manifest", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(SystemExit, match="1"):
+        embed_module.main()
+
+
+def test_embedding_main_exits_nonzero_on_empty_embeddings(monkeypatch):
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    embed_module = load_script("generate_embeddings_no_vectors_test", "scripts/03_generate_embeddings.py")
+
+    monkeypatch.setattr(
+        embed_module,
+        "load_chunks_from_s3",
+        lambda: (
+            [
+                {
+                    "chunk_id": "chunk_000001",
+                    "service": "s3",
+                    "source_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+                    "chunk_index": 0,
+                    "content": "hello",
+                }
+            ],
+            {"run_id": "run-123", "documents_prefix": "chunks/run-123/"},
+        ),
+    )
+    monkeypatch.setattr(embed_module, "process_chunks", lambda *_args, **_kwargs: ([], []))
     monkeypatch.setattr(embed_module, "write_embeddings_manifest", lambda *_args, **_kwargs: None)
 
     with pytest.raises(SystemExit, match="1"):

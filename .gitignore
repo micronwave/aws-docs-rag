@@ -45,3 +45,6 @@ LOCAL_E2E_AUDIT_NEXT_STEPS.md
 lambda_handler_audit_followup.txt
 PROMPT_BUILD_AUDIT_PLAN.txt
 api_gateway_audit_findings.md
+LAMBDA_DEPLOY_AUDIT_FINDINGS.txt
+frontend_audit_fix_plan.txt
+ENV_SECRET_HYGIENE_FIX_PLAN.txt
