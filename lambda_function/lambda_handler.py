@@ -17,7 +17,7 @@ PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "aws-rag-index")
 EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")
 LLM_MODEL_ID = os.environ.get("LLM_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN") or "https://d3d0zch3u8ca61.cloudfront.net"
 TOP_K = 5
 
 # Initialize clients outside the handler (reused across invocations)

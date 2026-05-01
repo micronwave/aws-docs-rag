@@ -31,6 +31,8 @@ HANDLER = "lambda_handler.lambda_handler"
 RUNTIME = "python3.11"
 TIMEOUT = 60       # seconds — Claude can take a moment to respond
 MEMORY = 512       # MB
+RESERVED_CONCURRENCY = 5
+CONCURRENCY_UNRESERVED_FLOOR = 10  # AWS minimum unreserved executions
 PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "aws-rag-index")
 EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")
@@ -276,19 +278,41 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
     return func_arn
 
 
+def apply_reserved_concurrency() -> None:
+    """Set reserved concurrency when account limit allows it (requires total > reserved + 10)."""
+    settings = lambda_client.get_account_settings()
+    account_limit = settings["AccountLimit"]["ConcurrentExecutions"]
+    required = RESERVED_CONCURRENCY + CONCURRENCY_UNRESERVED_FLOOR
+    if account_limit >= required:
+        lambda_client.put_function_concurrency(
+            FunctionName=FUNCTION_NAME,
+            ReservedConcurrentExecutions=RESERVED_CONCURRENCY,
+        )
+        print(f"  [OK] Reserved concurrency set to {RESERVED_CONCURRENCY}")
+    else:
+        print(
+            f"  [SKIP] Reserved concurrency: account limit ({account_limit}) < "
+            f"required ({required}). API Gateway throttling (rate=5, burst=10) "
+            f"provides equivalent protection for this single-trigger function."
+        )
+
+
 def main():
     print(f"\n{'='*60}")
     print(f"  Deploying Lambda: {FUNCTION_NAME}")
     print(f"{'='*60}")
 
-    print("\n[1/3] Creating IAM execution role...")
+    print("\n[1/4] Creating IAM execution role...")
     role_arn = create_role()
 
-    print("\n[2/3] Packaging Lambda function...")
+    print("\n[2/4] Packaging Lambda function...")
     zip_path = package_lambda()
 
-    print("\n[3/3] Deploying to AWS Lambda...")
+    print("\n[3/4] Deploying to AWS Lambda...")
     func_arn = deploy_function(role_arn, zip_path)
+
+    print("\n[4/4] Applying reserved concurrency...")
+    apply_reserved_concurrency()
 
     print(f"\n{'='*60}")
     print(f"  [OK] Lambda deployed successfully!")
