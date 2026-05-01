@@ -93,7 +93,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
         resourceId=resource_id,
         httpMethod=http_method,
         authorizationType="NONE",
-        apiKeyRequired=False,
+        apiKeyRequired=not is_cors,
     )
 
     if is_cors:
@@ -212,6 +212,76 @@ def deploy_api(api_id: str) -> str:
     return invoke_url
 
 
+def create_usage_plan(api_id: str) -> str:
+    """Create/repair usage plan + API key wiring and return key value."""
+    try:
+        keys = apigw.get_api_keys(nameQuery="aws-rag-key", includeValues=True).get("items", [])
+        if keys:
+            api_key_id = keys[0]["id"]
+            api_key_value = keys[0]["value"]
+            print(f"  API key already exists: {api_key_id}")
+        else:
+            raise KeyError("aws-rag-key not found")
+    except (ClientError, KeyError):
+        resp = apigw.create_api_key(
+            name="aws-rag-key",
+            description="API key for RAG frontend",
+            enabled=True,
+        )
+        api_key_id = resp["id"]
+        api_key_value = resp["value"]
+        print(f"  [OK] Created API key: {api_key_id}")
+
+    plans = apigw.get_usage_plans().get("items", [])
+    plan_id = None
+    for plan in plans:
+        if plan["name"] == "aws-rag-plan":
+            plan_id = plan["id"]
+            print(f"  Usage plan already exists: {plan_id}")
+            api_stages = plan.get("apiStages", [])
+            has_stage = any(
+                stage.get("apiId") == api_id and stage.get("stage") == STAGE_NAME
+                for stage in api_stages
+            )
+            if not has_stage:
+                apigw.update_usage_plan(
+                    usagePlanId=plan_id,
+                    patchOperations=[
+                        {
+                            "op": "add",
+                            "path": "/apiStages",
+                            "value": f"{api_id}:{STAGE_NAME}",
+                        }
+                    ],
+                )
+                print(f"  [OK] Re-attached usage plan to {api_id}:{STAGE_NAME}")
+            break
+
+    if not plan_id:
+        resp = apigw.create_usage_plan(
+            name="aws-rag-plan",
+            description="Rate-limited plan for RAG API",
+            throttle={"rateLimit": 5, "burstLimit": 10},
+            quota={"limit": 1000, "period": "DAY"},
+            apiStages=[{"apiId": api_id, "stage": STAGE_NAME}],
+        )
+        plan_id = resp["id"]
+        print(f"  [OK] Created usage plan: {plan_id}")
+
+    usage_plan_keys = apigw.get_usage_plan_keys(usagePlanId=plan_id).get("items", [])
+    if any(item.get("id") == api_key_id for item in usage_plan_keys):
+        print("  API key already linked to usage plan")
+    else:
+        apigw.create_usage_plan_key(
+            usagePlanId=plan_id,
+            keyId=api_key_id,
+            keyType="API_KEY",
+        )
+        print("  [OK] Linked API key to usage plan")
+
+    return api_key_value
+
+
 def main():
     print(f"\n{'='*60}")
     print(f"  Deploying API Gateway: {API_NAME}")
@@ -246,8 +316,11 @@ def main():
     setup_gateway_responses(api_id)
 
     # Deploy
-    print("\n[7/7] Deploying API...")
+    print("\n[7/8] Deploying API...")
     invoke_url = deploy_api(api_id)
+
+    print("\n[8/8] Creating usage plan and API key...")
+    api_key_value = create_usage_plan(api_id)
 
     endpoint = f"{invoke_url}/query"
 
@@ -258,6 +331,7 @@ def main():
     print(f"\n  Test with curl:")
     print(f"  curl -X POST {endpoint} \\")
     print(f"    -H 'Content-Type: application/json' \\")
+    print(f"    -H 'x-api-key: {api_key_value}' \\")
     print(f"    -d '{{\"question\": \"How do I create an S3 bucket?\"}}'")
     print()
 
@@ -265,6 +339,10 @@ def main():
     with open("api_endpoint.txt", "w") as f:
         f.write(endpoint)
     print(f"  Endpoint saved to api_endpoint.txt\n")
+
+    with open("api_key.txt", "w") as f:
+        f.write(api_key_value)
+    print("  API key saved to api_key.txt\n")
 
 
 if __name__ == "__main__":
