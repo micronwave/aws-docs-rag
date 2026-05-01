@@ -522,6 +522,27 @@ def test_css_loading_loop_removed_for_stage_scheduler():
     assert "animation:loadingStage" not in html
 
 
+def test_ask_lede_removed():
+    html = _read_html()
+    assert 'class="ask-lede"' not in html
+    assert "Ask a focused AWS question" not in html
+
+
+def test_clear_chat_has_margin_top():
+    html = _read_html()
+    match = re.search(r"\.secondary-btn\{([^}]*)\}", html, re.S)
+    assert match is not None
+    assert "margin-top:8px;" in re.sub(r"\s+", "", match.group(1))
+
+
+def test_header_badge_shows_sonnet():
+    html = _read_html()
+    assert '<span class="status-pill"><span class="dot"></span>SONNET 4.6</span>' in html
+    assert '<span class="status-pill"><span class="dot"></span>BEDROCK</span>' not in html
+    assert "SONNET 4.6 ROUTE ONLINE" in html
+    assert "BEDROCK ROUTE ONLINE" not in html
+
+
 def test_initial_section_visibility_uses_active_section_model():
     html = _read_html()
     script = _extract_script()
