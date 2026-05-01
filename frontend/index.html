@@ -1087,7 +1087,7 @@ async function handleSubmit(e) {
 
     try {
         const headers = { 'Content-Type': 'application/json' };
-        if (API_KEY && API_KEY !== '%%API_KEY%%') {
+        if (API_KEY && !API_KEY.startsWith('%%')) {
             headers['x-api-key'] = API_KEY;
         }
 
