@@ -1,7 +1,7 @@
 """
 08_deploy_frontend.py
 Deploys the static HTML/JS frontend to S3 and creates a CloudFront distribution.
-Reads the API endpoint from api_endpoint.txt and injects it into the HTML.
+Reads the API endpoint and key from local files and injects them into the HTML.
 
 Run: python scripts/08_deploy_frontend.py
 """
@@ -60,15 +60,17 @@ def create_frontend_bucket() -> None:
     print(f"  Public access blocked (CloudFront OAC will be used)")
 
 
-def upload_frontend(api_endpoint: str) -> None:
-    """Read index.html, inject the API endpoint, and upload to S3."""
+def upload_frontend(api_endpoint: str, api_key: str) -> None:
+    """Read index.html, inject API values, and upload to S3."""
     print("  Reading frontend/index.html...")
     with open("frontend/index.html", "r", encoding="utf-8") as f:
         html = f.read()
 
-    # Replace placeholder with actual endpoint
+    # Replace placeholders with deployed API values
     html = html.replace("%%API_ENDPOINT%%", api_endpoint)
+    html = html.replace("%%API_KEY%%", api_key)
     print(f"  Injected API endpoint: {api_endpoint}")
+    print("  Injected API key into frontend payload")
 
     s3.put_object(
         Bucket=FRONTEND_BUCKET,
@@ -221,13 +223,21 @@ def main():
         return
     print(f"\n  API endpoint: {api_endpoint}")
 
+    if os.path.exists("api_key.txt"):
+        with open("api_key.txt") as f:
+            api_key = f.read().strip()
+    else:
+        print("\n  [ERR] Missing api_key.txt")
+        print("  Run 07_deploy_api_gateway.py first to create api_key.txt")
+        return
+
     # Create bucket
     print("\n[1/3] Setting up S3 bucket...")
     create_frontend_bucket()
 
     # Upload HTML
     print("\n[2/3] Uploading frontend...")
-    upload_frontend(api_endpoint)
+    upload_frontend(api_endpoint, api_key)
 
     # CloudFront
     print("\n[3/3] Setting up CloudFront...")
