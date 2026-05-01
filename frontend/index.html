@@ -390,15 +390,7 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
   font-family:'Courier New',monospace;
   font-size:11px;
 }
-.loading-stages span:nth-child(1){animation:loadingStage 5s linear infinite;animation-delay:0s;}
-.loading-stages span:nth-child(2){animation:loadingStage 5s linear infinite;animation-delay:1s;}
-.loading-stages span:nth-child(3){animation:loadingStage 5s linear infinite;animation-delay:2s;}
-.loading-stages span:nth-child(4){animation:loadingStage 5s linear infinite;animation-delay:3s;}
-.loading-stages span:nth-child(5){animation:loadingStage 5s linear infinite;animation-delay:4s;}
-@keyframes loadingStage{
-  0%,16%{color:#FFCC00;border-color:#CC8800;box-shadow:0 0 5px rgba(255,204,0,.5);}
-  17%,100%{color:#88AACC;border-color:#1a3a5a;box-shadow:none;}
-}
+.loading-stages span.stage-active{color:#FFCC00;border-color:#CC8800;box-shadow:0 0 5px rgba(255,204,0,.5);}
 
 /* ── Input area ── */
 #input-area{
@@ -767,6 +759,7 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 <script>
 const API_ENDPOINT = "%%API_ENDPOINT%%";
 const REQUEST_TIMEOUT_MS = 30000;
+const STAGE_TIMINGS_MS = [0, 800, 2000, 3400, 5000];
 
 const chatContainer = document.getElementById('chat-container');
 const questionInput = document.getElementById('question-input');
@@ -774,6 +767,7 @@ const submitBtn = document.getElementById('submit-btn');
 const clearChatBtn = document.getElementById('clear-chat-btn');
 let hasAsked = false;
 let submitInProgress = false;
+let stageTimerIds = [];
 
 function scrollChatToBottom() {
     const chat = document.getElementById('chat-container');
@@ -1070,6 +1064,22 @@ async function handleSubmit(e) {
     clearChatBtn.disabled = true;
     const loadingMsg = addMessage('loading', '');
     loadingMsg.innerHTML = '<div class="loading-title"><span class="loading-dots">Processing RAG request</span></div><div class="loading-stages"><span>Question</span><span>Embed</span><span>Search</span><span>Generate</span><span>Sources</span></div>';
+    const loadingStageNodes = Array.from(loadingMsg.querySelectorAll('.loading-stages span'));
+    if (loadingStageNodes.length > 0) {
+        addClass(loadingStageNodes[0], 'stage-active');
+        STAGE_TIMINGS_MS.slice(1).forEach(function (delay, index) {
+            const timerId = setTimeout(function () {
+                loadingStageNodes.forEach(function (node, nodeIndex) {
+                    if (nodeIndex === index + 1) {
+                        addClass(node, 'stage-active');
+                    } else {
+                        removeClass(node, 'stage-active');
+                    }
+                });
+            }, delay);
+            stageTimerIds.push(timerId);
+        });
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
@@ -1083,6 +1093,8 @@ async function handleSubmit(e) {
         });
 
         const data = await readResponseBody(resp);
+        stageTimerIds.forEach(clearTimeout);
+        stageTimerIds = [];
         loadingMsg.remove();
 
         if (!resp.ok) {
@@ -1215,6 +1227,8 @@ async function handleSubmit(e) {
         scrollChatToBottom();
 
     } catch (err) {
+        stageTimerIds.forEach(clearTimeout);
+        stageTimerIds = [];
         loadingMsg.remove();
         if (err.name === 'AbortError') {
             addMessage('error', 'Request timed out after ' + (REQUEST_TIMEOUT_MS / 1000) + ' seconds. Please try again.');

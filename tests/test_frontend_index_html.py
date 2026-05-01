@@ -506,6 +506,22 @@ def test_loading_state_uses_staged_labels_and_is_removed_after_success():
     assert all(child["className"] != "message loading" for child in result["chat"]["children"])
 
 
+def test_stage_scheduler_constants_defined():
+    script = _extract_script()
+    assert "const STAGE_TIMINGS_MS = [0, 800, 2000, 3400, 5000];" in script
+    assert "let stageTimerIds = [];" in script
+    assert "const loadingStageNodes = Array.from(loadingMsg.querySelectorAll('.loading-stages span'));" in script
+    assert "stageTimerIds.forEach(clearTimeout);" in script
+    assert "stageTimerIds = [];" in script
+
+
+def test_css_loading_loop_removed_for_stage_scheduler():
+    html = _read_html()
+    assert ".loading-stages span.stage-active{color:#FFCC00;border-color:#CC8800;box-shadow:0 0 5px rgba(255,204,0,.5);}" in html
+    assert "@keyframes loadingStage" not in html
+    assert "animation:loadingStage" not in html
+
+
 def test_initial_section_visibility_uses_active_section_model():
     html = _read_html()
     script = _extract_script()
