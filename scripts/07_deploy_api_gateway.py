@@ -123,7 +123,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
             httpMethod=http_method,
             statusCode="200",
             responseParameters={
-                "method.response.header.Access-Control-Allow-Headers": "'Content-Type'",
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,x-api-key'",
                 "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
                 "method.response.header.Access-Control-Allow-Origin": f"'{allowed_origin}'",
             },
