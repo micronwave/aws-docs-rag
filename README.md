@@ -43,7 +43,7 @@ Every answer is backed by retrieved documentation.
 | **LLM** | Claude Sonnet 4.6 via Amazon Bedrock |
 | **Embeddings** | Amazon Titan Embeddings v2 (1024-dim) |
 | **Vector DB** | Pinecone (free tier) |
-| **Backend** | AWS Lambda + API Gateway (REST) |
+| **Backend** | AWS Lambda + API Gateway (REST + API key) |
 | **Frontend** | Static HTML/JS on S3 + CloudFront |
 | **Storage** | Amazon S3 |
 | **Monitoring** | Amazon CloudWatch |
@@ -84,6 +84,8 @@ aws-docs-rag/
 3. **Chunk** — Splits documents into ~1000-character pieces with 200-character overlap using LangChain's RecursiveCharacterTextSplitter
 4. **Embed** — Sends each chunk to Amazon Titan Embeddings v2 → 1024-dimensional vector
 5. **Store** — Uploads vectors + metadata to Pinecone with cosine similarity indexing
+
+Each pipeline stage writes a small manifest with a `run_id`, stores output under a versioned S3 prefix, and stops if the previous stage did not finish cleanly. Pinecone uploads also verify the final index state; failed batches are written to `local-data/failed_batches.json` and `pinecone/failed_batches/<run_id>.json`.
 
 ### Query Pipeline (every question)
 
@@ -144,6 +146,11 @@ Before running `scripts/06_deploy_lambda.py` and `scripts/07_deploy_api_gateway.
 set `ALLOWED_ORIGIN` to the CloudFront URL that will serve the frontend. Both
 deploy scripts read the same environment variable.
 
+On a first deploy, use the CloudFront URL you plan to serve from, then rerun
+the Lambda and API Gateway scripts if that URL changes. `scripts/07_deploy_api_gateway.py`
+writes `api_endpoint.txt` and `api_key.txt`; `scripts/08_deploy_frontend.py`
+reads both files and injects those values into the static frontend.
+
 ---
 
 ## Cost
@@ -166,7 +173,8 @@ Compared to ~$700+/month if using OpenSearch Serverless as the vector database.
 
 - Lambda runs with a **scoped IAM policy** — only `bedrock:InvokeModel` and CloudWatch log permissions
 - Pinecone API key stored as a **Lambda environment variable**
-- API Gateway handles CORS and request validation
+- API Gateway handles CORS, request validation, and a rate-limited usage plan
+- The frontend sends an API Gateway key for quota/throttle enforcement; it is not user authentication
 - S3 frontend bucket served through **CloudFront with HTTPS**
 - No user data is stored — queries are stateless
 
