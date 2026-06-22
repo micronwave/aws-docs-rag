@@ -170,7 +170,20 @@ def ensure_api_cache_behavior(dist_config: dict) -> bool:
             if item.get("ForwardedValues") != desired_forwarded_values:
                 item["ForwardedValues"] = desired_forwarded_values
                 changed = True
-            for key, value in [("MinTTL", 0), ("DefaultTTL", 0), ("MaxTTL", 0), ("Compress", True)]:
+            required_fields = [
+                ("TrustedSigners", {"Enabled": False, "Quantity": 0}),
+                ("TrustedKeyGroups", {"Enabled": False, "Quantity": 0}),
+                ("SmoothStreaming", False),
+                ("Compress", True),
+                ("LambdaFunctionAssociations", {"Quantity": 0}),
+                ("FunctionAssociations", {"Quantity": 0}),
+                ("FieldLevelEncryptionId", ""),
+                ("GrpcConfig", {"Enabled": False}),
+                ("MinTTL", 0),
+                ("DefaultTTL", 0),
+                ("MaxTTL", 0),
+            ]
+            for key, value in required_fields:
                 if item.get(key) != value:
                     item[key] = value
                     changed = True
@@ -192,6 +205,13 @@ def ensure_api_cache_behavior(dist_config: dict) -> bool:
             "QueryString": False,
             "Cookies": {"Forward": "none"},
         },
+        "TrustedSigners": {"Enabled": False, "Quantity": 0},
+        "TrustedKeyGroups": {"Enabled": False, "Quantity": 0},
+        "SmoothStreaming": False,
+        "LambdaFunctionAssociations": {"Quantity": 0},
+        "FunctionAssociations": {"Quantity": 0},
+        "FieldLevelEncryptionId": "",
+        "GrpcConfig": {"Enabled": False},
         "MinTTL": 0,
         "DefaultTTL": 0,
         "MaxTTL": 0,
@@ -370,6 +390,13 @@ def create_cloudfront_distribution(api_endpoint: str) -> tuple[str, str]:
                         "QueryString": False,
                         "Cookies": {"Forward": "none"},
                     },
+                    "TrustedSigners": {"Enabled": False, "Quantity": 0},
+                    "TrustedKeyGroups": {"Enabled": False, "Quantity": 0},
+                    "SmoothStreaming": False,
+                    "LambdaFunctionAssociations": {"Quantity": 0},
+                    "FunctionAssociations": {"Quantity": 0},
+                    "FieldLevelEncryptionId": "",
+                    "GrpcConfig": {"Enabled": False},
                     "MinTTL": 0,
                     "DefaultTTL": 0,
                     "MaxTTL": 0,

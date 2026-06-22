@@ -666,7 +666,15 @@ def test_ensure_api_cache_behavior_uses_exact_query_path(monkeypatch):
     config = {"CacheBehaviors": {"Quantity": 1, "Items": [{"PathPattern": "query*"}]}}
 
     assert module.ensure_api_cache_behavior(config) is True
-    assert config["CacheBehaviors"]["Items"][0]["PathPattern"] == "query"
+    behavior = config["CacheBehaviors"]["Items"][0]
+    assert behavior["PathPattern"] == "query"
+    assert behavior["SmoothStreaming"] is False
+    assert behavior["TrustedSigners"] == {"Enabled": False, "Quantity": 0}
+    assert behavior["TrustedKeyGroups"] == {"Enabled": False, "Quantity": 0}
+    assert behavior["LambdaFunctionAssociations"] == {"Quantity": 0}
+    assert behavior["FunctionAssociations"] == {"Quantity": 0}
+    assert behavior["FieldLevelEncryptionId"] == ""
+    assert behavior["GrpcConfig"] == {"Enabled": False}
 
 
 def test_get_or_create_oac_returns_existing_oac(monkeypatch):
