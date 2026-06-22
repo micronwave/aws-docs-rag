@@ -129,6 +129,8 @@ def build_api_origin(api_endpoint: str) -> dict:
             "HTTPPort": 80,
             "HTTPSPort": 443,
             "OriginProtocolPolicy": "https-only",
+            "OriginReadTimeout": 30,
+            "OriginKeepaliveTimeout": 5,
             "OriginSslProtocols": {
                 "Quantity": 1,
                 "Items": ["TLSv1.2"],

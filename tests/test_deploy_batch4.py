@@ -625,6 +625,8 @@ def test_build_api_origin_uses_server_side_secret(monkeypatch):
 
     assert origin["DomainName"] == "abc123.execute-api.us-east-1.amazonaws.com"
     assert origin["OriginPath"] == "/prod"
+    assert origin["CustomOriginConfig"]["OriginReadTimeout"] == 30
+    assert origin["CustomOriginConfig"]["OriginKeepaliveTimeout"] == 5
     assert origin["CustomHeaders"]["Items"][0] == {
         "HeaderName": "x-origin-verify",
         "HeaderValue": "shared-secret",
