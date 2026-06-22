@@ -217,12 +217,12 @@ def deploy_api(api_id: str) -> str:
         patchOperations=[
             {
                 "op": "replace",
-                "path": "/methodSettings/~1query~1POST/throttling/rateLimit",
+                "path": "/~1query/POST/throttling/rateLimit",
                 "value": str(THROTTLE_RATE_LIMIT),
             },
             {
                 "op": "replace",
-                "path": "/methodSettings/~1query~1POST/throttling/burstLimit",
+                "path": "/~1query/POST/throttling/burstLimit",
                 "value": str(THROTTLE_BURST_LIMIT),
             },
         ],

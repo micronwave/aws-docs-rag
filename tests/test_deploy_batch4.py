@@ -577,8 +577,8 @@ def test_deploy_api_restores_post_throttling_without_api_key(api_module):
         kwargs for name, kwargs in api_module._test_apigw.calls if name == "update_stage"
     )
     operations = {item["path"]: item["value"] for item in update_call["patchOperations"]}
-    assert operations["/methodSettings/~1query~1POST/throttling/rateLimit"] == "5"
-    assert operations["/methodSettings/~1query~1POST/throttling/burstLimit"] == "10"
+    assert operations["/~1query/POST/throttling/rateLimit"] == "5"
+    assert operations["/~1query/POST/throttling/burstLimit"] == "10"
 
 
 def test_create_frontend_bucket_creates_or_reuses_bucket_and_sets_website_and_public_access_block(frontend_module):
