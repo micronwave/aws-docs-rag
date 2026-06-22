@@ -657,8 +657,15 @@ def test_answer_actions_exist_without_sources():
 def test_static_template_invariants():
     html = _read_html()
     assert html.count("%%API_ENDPOINT%%") == 1
+    assert "%%API_KEY%%" not in html
     assert len(re.findall(r"<script>", html)) == 1
     assert len(re.findall(r"</script>", html)) == 1
+
+
+def test_frontend_no_longer_ships_browser_api_key_header():
+    script = _extract_script()
+    assert "const API_KEY" not in script
+    assert "x-api-key" not in script
 
 
 def test_source_service_label_parsed_from_plain_string_url():

@@ -21,7 +21,11 @@ SCRIPT_DIR = os.path.dirname(__file__)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-from deploy_config import get_allowed_origin
+from deploy_config import (
+    get_allowed_origin,
+    get_origin_verify_header,
+    get_origin_verify_secret,
+)
 
 # ─── Configuration ────────────────────────────────────────────────────
 REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
@@ -223,6 +227,8 @@ def deploy_function(role_arn: str, zip_path: str) -> str:
         "EMBEDDING_MODEL_ID": EMBEDDING_MODEL_ID,
         "LLM_MODEL_ID": LLM_MODEL_ID,
         "ALLOWED_ORIGIN": get_allowed_origin(),
+        "ORIGIN_VERIFY_HEADER": get_origin_verify_header(),
+        "ORIGIN_VERIFY_SECRET": get_origin_verify_secret(),
     }
 
     try:

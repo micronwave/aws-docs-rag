@@ -23,6 +23,10 @@ cd aws-docs-rag
 Set the project variables before running the deploy scripts. `ALLOWED_ORIGIN`
 must match the CloudFront URL that serves the frontend.
 
+`ORIGIN_VERIFY_SECRET` is optional. If you do not set it, the deploy helpers
+generate a strong secret and store it in `origin_verify_secret.txt` so Lambda
+and CloudFront share the same value without exposing it to the browser.
+
 Example:
 
 ```bash
@@ -50,5 +54,8 @@ Run these scripts in order:
 
 `scripts/06_deploy_lambda.py` injects `ALLOWED_ORIGIN` into the Lambda
 environment, and `scripts/07_deploy_api_gateway.py` uses the same value for
-OPTIONS and gateway error responses. If the frontend URL changes, update the
-environment variable and rerun both scripts.
+OPTIONS and gateway error responses. `scripts/08_deploy_frontend.py` publishes
+the frontend with a same-origin `/query` endpoint and configures CloudFront to
+forward that path to API Gateway with a private verification header. If the
+frontend URL changes, update the environment variable and rerun the Lambda and
+API Gateway scripts.

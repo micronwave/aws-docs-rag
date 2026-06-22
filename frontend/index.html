@@ -758,7 +758,6 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 
 <script>
 const API_ENDPOINT = "%%API_ENDPOINT%%";
-const API_KEY = "%%API_KEY%%";
 const REQUEST_TIMEOUT_MS = 30000;
 const STAGE_TIMINGS_MS = [0, 800, 2000, 3400, 5000];
 
@@ -1087,10 +1086,6 @@ async function handleSubmit(e) {
 
     try {
         const headers = { 'Content-Type': 'application/json' };
-        if (API_KEY && !API_KEY.startsWith('%%')) {
-            headers['x-api-key'] = API_KEY;
-        }
-
         const resp = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: headers,

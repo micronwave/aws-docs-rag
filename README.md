@@ -43,7 +43,7 @@ Every answer is backed by retrieved documentation.
 | **LLM** | Claude Sonnet 4.6 via Amazon Bedrock |
 | **Embeddings** | Amazon Titan Embeddings v2 (1024-dim) |
 | **Vector DB** | Pinecone (free tier) |
-| **Backend** | AWS Lambda + API Gateway (REST + API key) |
+| **Backend** | AWS Lambda + API Gateway (REST) |
 | **Frontend** | Static HTML/JS on S3 + CloudFront |
 | **Storage** | Amazon S3 |
 | **Monitoring** | Amazon CloudWatch |
@@ -148,8 +148,10 @@ deploy scripts read the same environment variable.
 
 On a first deploy, use the CloudFront URL you plan to serve from, then rerun
 the Lambda and API Gateway scripts if that URL changes. `scripts/07_deploy_api_gateway.py`
-writes `api_endpoint.txt` and `api_key.txt`; `scripts/08_deploy_frontend.py`
-reads both files and injects those values into the static frontend.
+writes `api_endpoint.txt`; `scripts/deploy_config.py` creates or reuses
+`origin_verify_secret.txt`; and `scripts/08_deploy_frontend.py` publishes the
+frontend against the same-origin `/query` path while configuring CloudFront to
+forward that path to API Gateway with the private verification header.
 
 ---
 
@@ -173,8 +175,8 @@ Compared to ~$700+/month if using OpenSearch Serverless as the vector database.
 
 - Lambda runs with a **scoped IAM policy** — only `bedrock:InvokeModel` and CloudWatch log permissions
 - Pinecone API key stored as a **Lambda environment variable**
-- API Gateway handles CORS, request validation, and a rate-limited usage plan
-- The frontend sends an API Gateway key for quota/throttle enforcement; it is not user authentication
+- API Gateway handles CORS, request routing, and stage-level throttling; Lambda rejects requests that do not carry the private CloudFront origin-verification header
+- The frontend never ships a backend credential to the browser; the browser only calls same-origin `/query`
 - S3 frontend bucket served through **CloudFront with HTTPS**
 - No user data is stored — queries are stateless
 

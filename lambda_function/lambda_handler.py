@@ -7,6 +7,7 @@ sends them to Claude via Bedrock, and returns the answer.
 
 import os
 import json
+import hmac
 import traceback
 import boto3
 from pinecone import Pinecone
@@ -18,6 +19,8 @@ INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "aws-rag-index")
 EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")
 LLM_MODEL_ID = os.environ.get("LLM_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN") or "https://d3d0zch3u8ca61.cloudfront.net"
+ORIGIN_VERIFY_HEADER = os.environ.get("ORIGIN_VERIFY_HEADER", "x-origin-verify")
+ORIGIN_VERIFY_SECRET = os.environ.get("ORIGIN_VERIFY_SECRET", "")
 TOP_K = 5
 
 # Initialize clients outside the handler (reused across invocations)
@@ -106,6 +109,33 @@ def call_claude(prompt: str) -> str:
     return result["content"][0]["text"]
 
 
+def response_headers() -> dict:
+    return {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST,OPTIONS",
+    }
+
+
+def get_header(event: dict, header_name: str) -> str:
+    headers = event.get("headers") or {}
+    target = header_name.lower()
+    for key, value in headers.items():
+        if str(key).lower() == target:
+            return str(value)
+    return ""
+
+
+def request_has_valid_origin_secret(event: dict) -> bool:
+    if not ORIGIN_VERIFY_SECRET:
+        print("ERROR: ORIGIN_VERIFY_SECRET is not configured")
+        return False
+
+    supplied = get_header(event, ORIGIN_VERIFY_HEADER)
+    return hmac.compare_digest(supplied, ORIGIN_VERIFY_SECRET)
+
+
 def lambda_handler(event, context):
     """
     Main Lambda entry point.
@@ -119,29 +149,26 @@ def lambda_handler(event, context):
         else:
             body = event.get("body", event)
 
+        if not request_has_valid_origin_secret(event):
+            return {
+                "statusCode": 403,
+                "headers": response_headers(),
+                "body": json.dumps({"error": "Forbidden"}),
+            }
+
         question = body.get("question", "").strip()
 
         if not question:
             return {
                 "statusCode": 400,
-                "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-                    "Access-Control-Allow-Headers": "Content-Type",
-                    "Access-Control-Allow-Methods": "POST,OPTIONS",
-                },
+                "headers": response_headers(),
                 "body": json.dumps({"error": "No question provided"}),
             }
 
         if len(question) > 1000:
             return {
                 "statusCode": 400,
-                "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-                    "Access-Control-Allow-Headers": "Content-Type",
-                    "Access-Control-Allow-Methods": "POST,OPTIONS",
-                },
+                "headers": response_headers(),
                 "body": json.dumps({"error": "Question too long. Maximum 1000 characters."}),
             }
 
@@ -159,12 +186,7 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-                "Access-Control-Allow-Headers": "Content-Type",
-                "Access-Control-Allow-Methods": "POST,OPTIONS",
-            },
+            "headers": response_headers(),
             "body": json.dumps({
                 "answer": answer,
                 "sources": sources,
@@ -176,11 +198,6 @@ def lambda_handler(event, context):
         print(f"ERROR: {traceback.format_exc()}")
         return {
             "statusCode": 500,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-                "Access-Control-Allow-Headers": "Content-Type",
-                "Access-Control-Allow-Methods": "POST,OPTIONS",
-            },
+            "headers": response_headers(),
             "body": json.dumps({"error": "Internal server error"}),
         }

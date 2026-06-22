@@ -10,6 +10,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ORIGIN = "https://d3d0zch3u8ca61.cloudfront.net"
 
 
 class FakeBody:
@@ -48,9 +49,11 @@ class FakeIndex:
         return SimpleNamespace(matches=self.matches)
 
 
-def load_lambda_module(monkeypatch, *, allowed_origin="*"):
+def load_lambda_module(monkeypatch, *, allowed_origin="*", origin_verify_secret="origin-secret", origin_verify_header="x-origin-verify"):
     monkeypatch.setenv("AWS_REGION", "us-east-1")
     monkeypatch.setenv("PINECONE_API_KEY", "test-key")
+    monkeypatch.setenv("ORIGIN_VERIFY_SECRET", origin_verify_secret)
+    monkeypatch.setenv("ORIGIN_VERIFY_HEADER", origin_verify_header)
     if allowed_origin is None:
         monkeypatch.delenv("ALLOWED_ORIGIN", raising=False)
     else:
@@ -98,6 +101,15 @@ def make_handler_stubs(monkeypatch, module, *, answer="final answer", chunks=Non
     monkeypatch.setattr(module, "search_pinecone", lambda vector: chunks)
     monkeypatch.setattr(module, "build_prompt", lambda question, chunk_list: prompt)
     monkeypatch.setattr(module, "call_claude", lambda generated_prompt: answer)
+
+
+def make_event(body, *, header_name="x-origin-verify", header_value="origin-secret"):
+    return {
+        "body": body,
+        "headers": {
+            header_name: header_value,
+        },
+    }
 
 
 def test_embed_query_returns_1024_dim_embedding_and_passes_body(monkeypatch):
@@ -314,7 +326,7 @@ def test_lambda_handler_happy_path_parses_body_and_returns_cors_headers(monkeypa
     module = load_lambda_module(monkeypatch, allowed_origin="https://example.cloudfront.net")
     make_handler_stubs(monkeypatch, module, answer="final answer")
 
-    response = module.lambda_handler({"body": body}, None)
+    response = module.lambda_handler(make_event(body), None)
     payload = json.loads(response["body"])
 
     assert response["statusCode"] == 200
@@ -335,7 +347,7 @@ def test_lambda_handler_accepts_max_length_question(monkeypatch):
     make_handler_stubs(monkeypatch, module, answer="final answer")
     question = "x" * 1000
 
-    response = module.lambda_handler({"body": {"question": question}}, None)
+    response = module.lambda_handler(make_event({"question": question}), None)
     payload = json.loads(response["body"])
 
     assert response["statusCode"] == 200
@@ -356,7 +368,7 @@ def test_lambda_handler_returns_500_for_pipeline_stage_failures(monkeypatch, cap
 
     monkeypatch.setattr(module, failing_stage, boom)
 
-    response = module.lambda_handler({"body": json.dumps({"question": "What is AWS?"})}, None)
+    response = module.lambda_handler(make_event(json.dumps({"question": "What is AWS?"})), None)
     payload = json.loads(response["body"])
     captured = capsys.readouterr()
 
@@ -387,7 +399,33 @@ def test_lambda_handler_uses_configured_cors_origin(monkeypatch, allowed_origin)
     module = load_lambda_module(monkeypatch, allowed_origin=allowed_origin)
     make_handler_stubs(monkeypatch, module)
 
-    response = module.lambda_handler({"body": {"question": "Question?"}}, None)
+    response = module.lambda_handler(make_event({"question": "Question?"}), None)
 
-    expected_origin = allowed_origin if allowed_origin is not None else "*"
+    expected_origin = allowed_origin if allowed_origin is not None else DEFAULT_ORIGIN
     assert response["headers"]["Access-Control-Allow-Origin"] == expected_origin
+
+
+def test_lambda_handler_rejects_missing_origin_verification_header(monkeypatch):
+    module = load_lambda_module(monkeypatch, allowed_origin="https://example.cloudfront.net")
+    make_handler_stubs(monkeypatch, module)
+
+    response = module.lambda_handler({"body": {"question": "Question?"}, "headers": {}}, None)
+
+    assert response["statusCode"] == 403
+    assert json.loads(response["body"]) == {"error": "Forbidden"}
+    assert response["headers"]["Access-Control-Allow-Origin"] == "https://example.cloudfront.net"
+
+
+def test_lambda_handler_accepts_case_insensitive_origin_header_name(monkeypatch):
+    module = load_lambda_module(monkeypatch, origin_verify_secret="shared-secret", origin_verify_header="x-origin-verify")
+    make_handler_stubs(monkeypatch, module)
+
+    response = module.lambda_handler(
+        {
+            "body": {"question": "Question?"},
+            "headers": {"X-Origin-Verify": "shared-secret"},
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200

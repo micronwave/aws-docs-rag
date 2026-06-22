@@ -3,11 +3,14 @@
 Creates an API Gateway REST API with a /query POST endpoint,
 connects it to the Lambda function, enables CORS, and deploys.
 
+The browser should not call this endpoint directly. CloudFront forwards
+same-origin /query requests and injects a server-side origin verification
+header that the Lambda validates.
+
 Run: python scripts/07_deploy_api_gateway.py
 """
 
 import os
-import json
 import sys
 import boto3
 from botocore.exceptions import ClientError
@@ -23,6 +26,8 @@ REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-2")
 FUNCTION_NAME = "aws-rag-query"
 API_NAME = "aws-rag-api"
 STAGE_NAME = "prod"
+THROTTLE_RATE_LIMIT = 5
+THROTTLE_BURST_LIMIT = 10
 
 apigw = boto3.client("apigateway", region_name=REGION)
 lambda_client = boto3.client("lambda", region_name=REGION)
@@ -93,7 +98,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
         resourceId=resource_id,
         httpMethod=http_method,
         authorizationType="NONE",
-        apiKeyRequired=not is_cors,
+        apiKeyRequired=False,
     )
 
     if is_cors:
@@ -123,7 +128,7 @@ def setup_method(api_id: str, resource_id: str, http_method: str, lambda_arn: st
             httpMethod=http_method,
             statusCode="200",
             responseParameters={
-                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,x-api-key'",
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type'",
                 "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
                 "method.response.header.Access-Control-Allow-Origin": f"'{allowed_origin}'",
             },
@@ -206,80 +211,26 @@ def deploy_api(api_id: str) -> str:
         stageName=STAGE_NAME,
         description="RAG API deployment",
     )
+    apigw.update_stage(
+        restApiId=api_id,
+        stageName=STAGE_NAME,
+        patchOperations=[
+            {
+                "op": "replace",
+                "path": "/methodSettings/~1query~1POST/throttling/rateLimit",
+                "value": str(THROTTLE_RATE_LIMIT),
+            },
+            {
+                "op": "replace",
+                "path": "/methodSettings/~1query~1POST/throttling/burstLimit",
+                "value": str(THROTTLE_BURST_LIMIT),
+            },
+        ],
+    )
 
     invoke_url = f"https://{api_id}.execute-api.{REGION}.amazonaws.com/{STAGE_NAME}"
-    print(f"  [OK] Deployed to stage '{STAGE_NAME}'")
+    print(f"  [OK] Deployed to stage '{STAGE_NAME}' with request throttling")
     return invoke_url
-
-
-def create_usage_plan(api_id: str) -> str:
-    """Create/repair usage plan + API key wiring and return key value."""
-    try:
-        keys = apigw.get_api_keys(nameQuery="aws-rag-key", includeValues=True).get("items", [])
-        if keys:
-            api_key_id = keys[0]["id"]
-            api_key_value = keys[0]["value"]
-            print(f"  API key already exists: {api_key_id}")
-        else:
-            raise KeyError("aws-rag-key not found")
-    except (ClientError, KeyError):
-        resp = apigw.create_api_key(
-            name="aws-rag-key",
-            description="API key for RAG frontend",
-            enabled=True,
-        )
-        api_key_id = resp["id"]
-        api_key_value = resp["value"]
-        print(f"  [OK] Created API key: {api_key_id}")
-
-    plans = apigw.get_usage_plans().get("items", [])
-    plan_id = None
-    for plan in plans:
-        if plan["name"] == "aws-rag-plan":
-            plan_id = plan["id"]
-            print(f"  Usage plan already exists: {plan_id}")
-            api_stages = plan.get("apiStages", [])
-            has_stage = any(
-                stage.get("apiId") == api_id and stage.get("stage") == STAGE_NAME
-                for stage in api_stages
-            )
-            if not has_stage:
-                apigw.update_usage_plan(
-                    usagePlanId=plan_id,
-                    patchOperations=[
-                        {
-                            "op": "add",
-                            "path": "/apiStages",
-                            "value": f"{api_id}:{STAGE_NAME}",
-                        }
-                    ],
-                )
-                print(f"  [OK] Re-attached usage plan to {api_id}:{STAGE_NAME}")
-            break
-
-    if not plan_id:
-        resp = apigw.create_usage_plan(
-            name="aws-rag-plan",
-            description="Rate-limited plan for RAG API",
-            throttle={"rateLimit": 5, "burstLimit": 10},
-            quota={"limit": 1000, "period": "DAY"},
-            apiStages=[{"apiId": api_id, "stage": STAGE_NAME}],
-        )
-        plan_id = resp["id"]
-        print(f"  [OK] Created usage plan: {plan_id}")
-
-    usage_plan_keys = apigw.get_usage_plan_keys(usagePlanId=plan_id).get("items", [])
-    if any(item.get("id") == api_key_id for item in usage_plan_keys):
-        print("  API key already linked to usage plan")
-    else:
-        apigw.create_usage_plan_key(
-            usagePlanId=plan_id,
-            keyId=api_key_id,
-            keyType="API_KEY",
-        )
-        print("  [OK] Linked API key to usage plan")
-
-    return api_key_value
 
 
 def main():
@@ -319,30 +270,21 @@ def main():
     print("\n[7/8] Deploying API...")
     invoke_url = deploy_api(api_id)
 
-    print("\n[8/8] Creating usage plan and API key...")
-    api_key_value = create_usage_plan(api_id)
-
     endpoint = f"{invoke_url}/query"
 
     print(f"\n{'='*60}")
     print(f"  [OK] API Gateway deployed successfully!")
     print(f"  Endpoint: {endpoint}")
     print(f"{'='*60}")
-    print(f"\n  Test with curl:")
-    print(f"  curl -X POST {endpoint} \\")
-    print(f"    -H 'Content-Type: application/json' \\")
-    print(f"    -H 'x-api-key: {api_key_value}' \\")
-    print(f"    -d '{{\"question\": \"How do I create an S3 bucket?\"}}'")
+    print("\n  CloudFront should be configured as the public entrypoint for /query.")
+    print("  Direct API Gateway calls will be rejected unless they include the")
+    print("  server-side origin verification header shared with CloudFront.\n")
     print()
 
     # Save the endpoint URL for the frontend deployment script
     with open("api_endpoint.txt", "w") as f:
         f.write(endpoint)
     print(f"  Endpoint saved to api_endpoint.txt\n")
-
-    with open("api_key.txt", "w") as f:
-        f.write(api_key_value)
-    print("  API key saved to api_key.txt\n")
 
 
 if __name__ == "__main__":

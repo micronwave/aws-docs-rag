@@ -159,6 +159,9 @@ class FakeAPIGW:
     def create_deployment(self, **kwargs):
         self.calls.append(("create_deployment", kwargs))
 
+    def update_stage(self, **kwargs):
+        self.calls.append(("update_stage", kwargs))
+
 
 class FakeS3:
     def __init__(self, *, head_error=None):
@@ -191,6 +194,14 @@ class FakeCloudFront:
         self.calls = []
         self.origin_access_controls = []
         self.distributions = []
+        self.distribution_config = {
+            "Origins": {"Items": [{
+                "Id": "s3-frontend",
+                "DomainName": "bucket.s3.us-east-1.amazonaws.com",
+                "CustomOriginConfig": {"HTTPPort": 80},
+            }]},
+            "DefaultCacheBehavior": {"TargetOriginId": "s3-frontend"},
+        }
 
     def list_origin_access_controls(self):
         self.calls.append(("list_origin_access_controls", {}))
@@ -215,13 +226,7 @@ class FakeCloudFront:
     def get_distribution_config(self, **kwargs):
         self.calls.append(("get_distribution_config", kwargs))
         return {
-            "DistributionConfig": {
-                "Origins": {"Items": [{
-                    "Id": "s3-frontend",
-                    "DomainName": "bucket.s3.us-east-1.amazonaws.com",
-                    "CustomOriginConfig": {"HTTPPort": 80},
-                }]},
-            },
+            "DistributionConfig": self.distribution_config,
             "ETag": "etag-1",
         }
 
@@ -419,6 +424,8 @@ def test_deploy_function_updates_existing_function_with_expected_env_vars(monkey
         zip_path.write_bytes(b"zip")
 
         monkeypatch.setattr(module, "get_allowed_origin", lambda: "https://frontend.example")
+        monkeypatch.setattr(module, "get_origin_verify_header", lambda: "x-origin-verify")
+        monkeypatch.setattr(module, "get_origin_verify_secret", lambda: "shared-secret")
 
         func_arn = module.deploy_function("arn:role", str(zip_path))
 
@@ -427,6 +434,8 @@ def test_deploy_function_updates_existing_function_with_expected_env_vars(monkey
         env_vars = update_config_call["Environment"]["Variables"]
         assert env_vars["PINECONE_API_KEY"] == "test-key"
         assert env_vars["ALLOWED_ORIGIN"] == "https://frontend.example"
+        assert env_vars["ORIGIN_VERIFY_HEADER"] == "x-origin-verify"
+        assert env_vars["ORIGIN_VERIFY_SECRET"] == "shared-secret"
     finally:
         shutil.rmtree(artifacts_dir, ignore_errors=True)
 
@@ -452,6 +461,8 @@ def test_deploy_function_creates_new_function_when_missing(monkeypatch):
         zip_path = artifacts_dir / "deployment.zip"
         zip_path.write_bytes(b"zip")
         monkeypatch.setattr(module, "get_allowed_origin", lambda: "https://frontend.example")
+        monkeypatch.setattr(module, "get_origin_verify_header", lambda: "x-origin-verify")
+        monkeypatch.setattr(module, "get_origin_verify_secret", lambda: "shared-secret")
 
         func_arn = module.deploy_function("arn:role", str(zip_path))
 
@@ -459,6 +470,8 @@ def test_deploy_function_creates_new_function_when_missing(monkeypatch):
         create_call = next(kwargs for name, kwargs in lambda_client.calls if name == "create_function")
         assert create_call["Role"] == "arn:role"
         assert create_call["Environment"]["Variables"]["ALLOWED_ORIGIN"] == "https://frontend.example"
+        assert create_call["Environment"]["Variables"]["ORIGIN_VERIFY_HEADER"] == "x-origin-verify"
+        assert create_call["Environment"]["Variables"]["ORIGIN_VERIFY_SECRET"] == "shared-secret"
     finally:
         shutil.rmtree(artifacts_dir, ignore_errors=True)
 
@@ -556,6 +569,18 @@ def test_setup_gateway_responses_sets_cors_headers_on_error_types(monkeypatch):
     assert gateway_calls[0]["responseParameters"]["gatewayresponse.header.Access-Control-Allow-Origin"] == "'https://frontend.example'"
 
 
+def test_deploy_api_restores_post_throttling_without_api_key(api_module):
+    endpoint = api_module.deploy_api("api-id")
+
+    assert endpoint.endswith("/prod")
+    update_call = next(
+        kwargs for name, kwargs in api_module._test_apigw.calls if name == "update_stage"
+    )
+    operations = {item["path"]: item["value"] for item in update_call["patchOperations"]}
+    assert operations["/methodSettings/~1query~1POST/throttling/rateLimit"] == "5"
+    assert operations["/methodSettings/~1query~1POST/throttling/burstLimit"] == "10"
+
+
 def test_create_frontend_bucket_creates_or_reuses_bucket_and_sets_website_and_public_access_block(frontend_module):
     frontend_module.create_frontend_bucket()
 
@@ -575,12 +600,71 @@ def test_upload_frontend_injects_api_endpoint_before_upload(monkeypatch):
         boto3_client_map={"sts": sts, "s3": s3, "cloudfront": cf},
     )
     monkeypatch.chdir(ROOT)
-    module.upload_frontend("https://api.example/query")
+    module.upload_frontend("/query")
 
     put_object_call = next(kwargs for name, kwargs in s3.calls if name == "put_object")
     body = put_object_call["Body"].decode("utf-8")
-    assert "https://api.example/query" in body
+    assert "/query" in body
     assert "%%API_ENDPOINT%%" not in body
+    assert "%%API_KEY%%" not in body
+
+
+def test_build_api_origin_uses_server_side_secret(monkeypatch):
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    cf = FakeCloudFront()
+    module = load_script(
+        monkeypatch,
+        "deploy_frontend_api_origin_test",
+        "scripts/08_deploy_frontend.py",
+        boto3_client_map={"sts": FakeSTS(), "s3": FakeS3(), "cloudfront": cf},
+    )
+    monkeypatch.setattr(module, "get_origin_verify_header", lambda: "x-origin-verify")
+    monkeypatch.setattr(module, "get_origin_verify_secret", lambda: "shared-secret")
+
+    origin = module.build_api_origin("https://abc123.execute-api.us-east-1.amazonaws.com/prod/query")
+
+    assert origin["DomainName"] == "abc123.execute-api.us-east-1.amazonaws.com"
+    assert origin["OriginPath"] == "/prod"
+    assert origin["CustomHeaders"]["Items"][0] == {
+        "HeaderName": "x-origin-verify",
+        "HeaderValue": "shared-secret",
+    }
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://abc123.execute-api.us-east-1.amazonaws.com/prod/query",
+        "https://attacker.example/prod/query",
+        "https://abc123.execute-api.us-west-2.amazonaws.com/prod/query",
+        "https://abc123.execute-api.us-east-1.amazonaws.com/prod/not-query",
+        "https://abc123.execute-api.us-east-1.amazonaws.com/prod/query?redirect=attacker",
+    ],
+)
+def test_parse_api_gateway_origin_rejects_untrusted_endpoints(monkeypatch, endpoint):
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    module = load_script(
+        monkeypatch,
+        "deploy_frontend_untrusted_origin_test",
+        "scripts/08_deploy_frontend.py",
+        boto3_client_map={"sts": FakeSTS(), "s3": FakeS3(), "cloudfront": FakeCloudFront()},
+    )
+
+    with pytest.raises(ValueError):
+        module.parse_api_gateway_origin(endpoint)
+
+
+def test_ensure_api_cache_behavior_uses_exact_query_path(monkeypatch):
+    module = load_script(
+        monkeypatch,
+        "deploy_frontend_exact_query_path_test",
+        "scripts/08_deploy_frontend.py",
+        boto3_client_map={"sts": FakeSTS(), "s3": FakeS3(), "cloudfront": FakeCloudFront()},
+    )
+    config = {"CacheBehaviors": {"Quantity": 1, "Items": [{"PathPattern": "query*"}]}}
+
+    assert module.ensure_api_cache_behavior(config) is True
+    assert config["CacheBehaviors"]["Items"][0]["PathPattern"] == "query"
 
 
 def test_get_or_create_oac_returns_existing_oac(monkeypatch):
@@ -610,6 +694,7 @@ def test_get_or_create_oac_creates_new_oac_when_missing(monkeypatch):
 
 
 def test_create_cloudfront_distribution_reuses_existing_distribution_with_oac(monkeypatch):
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     cf = FakeCloudFront()
     module = load_script(
         monkeypatch,
@@ -628,13 +713,19 @@ def test_create_cloudfront_distribution_reuses_existing_distribution_with_oac(mo
         }
     }]
 
-    url, arn = module.create_cloudfront_distribution()
+    monkeypatch.setattr(module, "get_origin_verify_header", lambda: "x-origin-verify")
+    monkeypatch.setattr(module, "get_origin_verify_secret", lambda: "shared-secret")
+
+    url, arn = module.create_cloudfront_distribution("https://abc123.execute-api.us-east-1.amazonaws.com/prod/query")
 
     assert url == "https://d111.cloudfront.net"
     assert arn == "arn:aws:cloudfront::123:distribution/dist-existing"
+    update_call = next(kwargs for name, kwargs in cf.calls if name == "update_distribution")
+    assert any(item.get("Id") == "api-gateway-query" for item in update_call["DistributionConfig"]["Origins"]["Items"])
 
 
 def test_create_cloudfront_distribution_updates_custom_origin_distribution_to_oac(monkeypatch):
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     cf = FakeCloudFront()
     module = load_script(
         monkeypatch,
@@ -652,16 +743,26 @@ def test_create_cloudfront_distribution_updates_custom_origin_distribution_to_oa
             }]
         }
     }]
+    cf.distribution_config["DefaultCacheBehavior"]["TargetOriginId"] = "legacy-s3-origin"
+    cf.distribution_config["Origins"]["Items"][0]["Id"] = "legacy-s3-origin"
+    cf.distribution_config["Origins"]["Items"][0]["DomainName"] = (
+        f"{module.FRONTEND_BUCKET}.s3.{module.REGION}.amazonaws.com"
+    )
 
-    url, arn = module.create_cloudfront_distribution()
+    monkeypatch.setattr(module, "get_origin_verify_header", lambda: "x-origin-verify")
+    monkeypatch.setattr(module, "get_origin_verify_secret", lambda: "shared-secret")
+
+    url, arn = module.create_cloudfront_distribution("https://abc123.execute-api.us-east-1.amazonaws.com/prod/query")
 
     assert url == "https://d111.cloudfront.net"
     assert arn == "arn:aws:cloudfront::123:distribution/dist-existing"
     update_call = next(kwargs for name, kwargs in cf.calls if name == "update_distribution")
     assert update_call["DistributionConfig"]["Origins"]["Items"][0]["OriginAccessControlId"] == "oac-new"
+    assert update_call["DistributionConfig"]["DefaultCacheBehavior"]["TargetOriginId"] == "s3-frontend"
 
 
 def test_create_cloudfront_distribution_creates_new_distribution_and_returns_arn(monkeypatch):
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     cf = FakeCloudFront()
     module = load_script(
         monkeypatch,
@@ -670,11 +771,16 @@ def test_create_cloudfront_distribution_creates_new_distribution_and_returns_arn
         boto3_client_map={"sts": FakeSTS(), "s3": FakeS3(), "cloudfront": cf},
     )
 
-    url, arn = module.create_cloudfront_distribution()
+    monkeypatch.setattr(module, "get_origin_verify_header", lambda: "x-origin-verify")
+    monkeypatch.setattr(module, "get_origin_verify_secret", lambda: "shared-secret")
+
+    url, arn = module.create_cloudfront_distribution("https://abc123.execute-api.us-east-1.amazonaws.com/prod/query")
 
     assert url == "https://d111.cloudfront.net"
     assert arn == "arn:aws:cloudfront::123:distribution/dist-new"
     assert any(name == "create_distribution" for name, _kwargs in cf.calls)
+    create_call = next(kwargs for name, kwargs in cf.calls if name == "create_distribution")
+    assert create_call["DistributionConfig"]["Origins"]["Quantity"] == 2
 
 
 def test_main_sets_bucket_policy_using_distribution_arn(monkeypatch, capsys):
@@ -691,7 +797,7 @@ def test_main_sets_bucket_policy_using_distribution_arn(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["08_deploy_frontend.py", "https://api.example/query"])
     monkeypatch.setattr(module, "create_frontend_bucket", lambda: None)
     monkeypatch.setattr(module, "upload_frontend", lambda endpoint: None)
-    monkeypatch.setattr(module, "create_cloudfront_distribution", lambda: ("https://d111.cloudfront.net", "arn:aws:cloudfront::123:distribution/dist-arn"))
+    monkeypatch.setattr(module, "create_cloudfront_distribution", lambda endpoint: ("https://d111.cloudfront.net", "arn:aws:cloudfront::123:distribution/dist-arn"))
 
     module.main()
 
