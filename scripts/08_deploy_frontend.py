@@ -166,6 +166,8 @@ def ensure_api_cache_behavior(dist_config: dict) -> bool:
             desired_forwarded_values = {
                 "QueryString": False,
                 "Cookies": {"Forward": "none"},
+                "Headers": {"Quantity": 0},
+                "QueryStringCacheKeys": {"Quantity": 0},
             }
             if item.get("ForwardedValues") != desired_forwarded_values:
                 item["ForwardedValues"] = desired_forwarded_values
@@ -204,6 +206,8 @@ def ensure_api_cache_behavior(dist_config: dict) -> bool:
         "ForwardedValues": {
             "QueryString": False,
             "Cookies": {"Forward": "none"},
+            "Headers": {"Quantity": 0},
+            "QueryStringCacheKeys": {"Quantity": 0},
         },
         "TrustedSigners": {"Enabled": False, "Quantity": 0},
         "TrustedKeyGroups": {"Enabled": False, "Quantity": 0},
@@ -389,6 +393,8 @@ def create_cloudfront_distribution(api_endpoint: str) -> tuple[str, str]:
                     "ForwardedValues": {
                         "QueryString": False,
                         "Cookies": {"Forward": "none"},
+                        "Headers": {"Quantity": 0},
+                        "QueryStringCacheKeys": {"Quantity": 0},
                     },
                     "TrustedSigners": {"Enabled": False, "Quantity": 0},
                     "TrustedKeyGroups": {"Enabled": False, "Quantity": 0},

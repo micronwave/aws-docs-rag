@@ -675,6 +675,8 @@ def test_ensure_api_cache_behavior_uses_exact_query_path(monkeypatch):
     assert behavior["FunctionAssociations"] == {"Quantity": 0}
     assert behavior["FieldLevelEncryptionId"] == ""
     assert behavior["GrpcConfig"] == {"Enabled": False}
+    assert behavior["ForwardedValues"]["Headers"] == {"Quantity": 0}
+    assert behavior["ForwardedValues"]["QueryStringCacheKeys"] == {"Quantity": 0}
 
 
 def test_get_or_create_oac_returns_existing_oac(monkeypatch):
