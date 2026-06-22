@@ -184,6 +184,7 @@ def package_lambda() -> str:
         [
             "pip", "install",
             "pinecone",
+            "typing-extensions",
             "--platform", "manylinux2014_x86_64",
             "--implementation", "cp",
             "--python-version", "3.11",
@@ -194,6 +195,9 @@ def package_lambda() -> str:
         ],
         check=True,
     )
+
+    if not os.path.exists(os.path.join(build_dir, "typing_extensions.py")):
+        raise RuntimeError("Lambda package is missing required typing_extensions dependency")
 
     # Copy the Lambda handler into the build directory
     shutil.copy("lambda_function/lambda_handler.py", build_dir)

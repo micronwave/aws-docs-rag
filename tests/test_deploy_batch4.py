@@ -380,12 +380,16 @@ def test_package_lambda_includes_handler_and_installed_dependencies(monkeypatch)
     try:
         monkeypatch.setattr(module.tempfile, "gettempdir", lambda: str(artifacts_dir))
 
-        def fake_run(*_args, **_kwargs):
+        install_calls = []
+
+        def fake_run(args, **_kwargs):
+            install_calls.append(args)
             build_dir.mkdir(parents=True, exist_ok=True)
             (build_dir / "orjson").mkdir(exist_ok=True)
             (build_dir / "orjson" / "__init__.py").write_text("x=1", encoding="utf-8")
             (build_dir / "pinecone").mkdir(exist_ok=True)
             (build_dir / "pinecone" / "__init__.py").write_text("y=2", encoding="utf-8")
+            (build_dir / "typing_extensions.py").write_text("z=3", encoding="utf-8")
 
         monkeypatch.setattr(module.subprocess, "run", fake_run)
 
@@ -398,6 +402,8 @@ def test_package_lambda_includes_handler_and_installed_dependencies(monkeypatch)
         assert "lambda_handler.py" in names
         assert "orjson/__init__.py" in names
         assert "pinecone/__init__.py" in names
+        assert "typing_extensions.py" in names
+        assert any("typing-extensions" in args for args in install_calls)
     finally:
         shutil.rmtree(artifacts_dir, ignore_errors=True)
 
