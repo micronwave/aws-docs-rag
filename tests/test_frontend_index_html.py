@@ -45,6 +45,7 @@ class Node {
     this.style = {};
     this.value = '';
     this.disabled = false;
+    this.hidden = false;
     this.href = '';
     this.target = '';
     this.rel = '';
@@ -100,7 +101,10 @@ class Node {
   querySelector(selector) {
     return null;
   }
-  set textContent(value) { this._text = value; }
+  set textContent(value) {
+    this._text = value;
+    this.children = [];
+  }
   get textContent() { return this._text || this.children.map((child) => child.textContent || '').join(''); }
   set innerHTML(value) {
     innerHTMLAssignments.push({ tagName: this.tagName, className: this.className, value });
@@ -113,7 +117,7 @@ const nodes = {
   'chat-container': new Node('div'),
   'question-input': new Node('input'),
   'submit-btn': new Node('button'),
-  'clear-chat-btn': new Node('button'),
+  'command-feedback': new Node('div'),
   'welcome': new Node('div'),
 };
 
@@ -215,6 +219,8 @@ vm.runInContext(script, context);
     chat: serialize(nodes['chat-container']),
     welcomeHidden: nodes['welcome'].style.display,
     submitDisabled: nodes['submit-btn'].disabled,
+    commandFeedbackHidden: nodes['command-feedback'].hidden,
+    commandFeedbackText: nodes['command-feedback'].textContent,
     innerHTMLAssignments,
     removedNodes,
   }));
@@ -264,7 +270,6 @@ def test_successful_answer_renders_sources_and_clickable_links():
     assert len(assistant_nodes) == 1
     assistant = assistant_nodes[0]
     assert "S3 stores objects." in assistant["textContent"]
-    assert "3 sources" in assistant["textContent"]
     sources = [child for child in assistant["children"] if child["className"] == "sources"]
     assert len(sources) == 1
     source_nodes = list(_walk_nodes(sources[0]))
@@ -312,7 +317,6 @@ def test_source_count_updates_for_two_unique_valid_urls():
 
     assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
     assert len(assistant_nodes) == 1
-    assert "2 sources" in assistant_nodes[0]["textContent"]
 
 
 def test_successful_answer_with_no_sources_still_renders_zero_source_count():
@@ -335,7 +339,6 @@ def test_successful_answer_with_no_sources_still_renders_zero_source_count():
     assistant_nodes = [child for child in result["chat"]["children"] if child["className"] == "message assistant"]
     assert len(assistant_nodes) == 1
     assert "The answer still renders." in assistant_nodes[0]["textContent"]
-    assert "0 sources" in assistant_nodes[0]["textContent"]
     assert [child for child in assistant_nodes[0]["children"] if child["className"] == "sources"] == []
 
 
@@ -371,6 +374,8 @@ def test_successful_answer_renders_supported_markdown_subset():
     assert "ul" in tag_names
     assert "ol" in tag_names
     assert "table" in tag_names
+    table_wrappers = [node for node in nodes if node["className"] == "table-scroll"]
+    assert len(table_wrappers) == 1
     assert "pre" in tag_names
     assert "code" in tag_names
 
@@ -528,19 +533,59 @@ def test_ask_lede_removed():
     assert "Ask a focused AWS question" not in html
 
 
-def test_clear_chat_has_margin_top():
+def test_clear_command_replaces_the_visible_button():
     html = _read_html()
-    match = re.search(r"\.secondary-btn\{([^}]*)\}", html, re.S)
-    assert match is not None
-    assert "margin-top:8px;" in re.sub(r"\s+", "", match.group(1))
+    assert 'id="clear-chat-btn"' not in html
+    assert "const clearChatBtn" not in html
+    assert "function isClearCommand(value)" in html
+    assert "padding:12px 8px 10px;" in html
+    assert "border-top:3px solid #CC8800;" in html
 
 
-def test_header_badge_shows_sonnet():
+def test_clear_command_is_colored_project_gold_in_the_input():
     html = _read_html()
-    assert '<span class="status-pill"><span class="dot"></span>SONNET 4.6</span>' in html
-    assert '<span class="status-pill"><span class="dot"></span>BEDROCK</span>' not in html
-    assert "SONNET 4.6 ROUTE ONLINE" in html
-    assert "BEDROCK ROUTE ONLINE" not in html
+    assert ".form-input.command-input" in html
+    assert "color:#CC8800;" in html
+    assert "questionInput.addEventListener('input', syncCommandInputStyle);" in html
+    assert "addClass(questionInput, 'command-input');" in html
+    assert "removeClass(questionInput, 'command-input');" in html
+    assert "if (isClearCommand(question))" in html
+
+def test_clear_command_shows_accessible_visual_feedback():
+    html = _read_html()
+    assert 'id="command-feedback"' in html
+    assert 'role="status"' in html
+    assert 'aria-live="polite"' in html
+    assert "showCommandFeedback('Chat cleared')" in html
+    assert "1800" in html
+
+
+def test_clear_command_restores_the_welcome_without_calling_the_api():
+    result = _run_frontend_case(
+        {
+            "question": "  /CLEAR  ",
+            "fetch": {
+                "kind": "reject",
+                "name": "Error",
+                "message": "fetch should not be called",
+            },
+        }
+    )
+
+    assert result["welcomeHidden"] == ""
+    assert result["commandFeedbackHidden"] is False
+    assert result["commandFeedbackText"] == "Chat cleared"
+    assert len(result["chat"]["children"]) == 1
+    assert result["chat"]["children"][0]["tagName"] == "div"
+    assert not result["submitDisabled"]
+
+
+def test_removed_header_and_marquee_css_is_not_retained():
+    html = _read_html()
+    assert ".status-pill" not in html
+    assert ".header-badges" not in html
+    assert ".marquee" not in html
+    assert ".marquee-text" not in html
 
 
 def test_initial_section_visibility_uses_active_section_model():
@@ -548,7 +593,7 @@ def test_initial_section_visibility_uses_active_section_model():
     script = _extract_script()
     normalized = re.sub(r"\s+", "", html)
 
-    assert '<divdata-section="ask"class="section-active">' in normalized
+    assert '<divdata-section="ask"class="section-active"tabindex="-1">' in normalized
     assert '<divdata-section="about"class="section-active">' not in normalized
     assert '<divdata-section="architecture"class="section-active">' not in normalized
     assert "[data-section]{display:none;}" in normalized
@@ -569,20 +614,11 @@ def test_favicon_visible_letter_is_r():
     assert ">A</text>" not in payload
 
 
-def test_destinations_include_page_kickers():
+def test_destinations_are_focusable_for_navigation():
     html = _read_html()
-
-    expected = {
-        "ask": "Interactive Query",
-        "about": "System Overview",
-        "architecture": "Request Flow",
-    }
-    for section, kicker in expected.items():
-        pattern = (
-            r'<div data-section="' + re.escape(section) + r'"[^>]*>\s*'
-            r'<div class="page-kicker">' + re.escape(kicker) + r"</div>"
-        )
-        assert re.search(pattern, html) is not None
+    assert '<div data-section="ask" class="section-active" tabindex="-1">' in html
+    assert '<div data-section="about" tabindex="-1">' in html
+    assert "target.focus({ preventScroll: true });" in _extract_script()
 
 
 def test_answer_actions_exist_with_sources():

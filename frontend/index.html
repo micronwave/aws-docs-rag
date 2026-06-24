@@ -11,15 +11,15 @@
 html,body{height:100%;}
 body{
   font-family:Verdana,Tahoma,Geneva,sans-serif;
-  font-size:15px;
+  font-size:14px;
   color:#222;
   background:#2B3A4A;
   background-image:url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23384d61' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 5v-1zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
   cursor:crosshair;
   line-height:1.55;
 }
-a{color:#0033CC;text-decoration:underline;}
-a:visited{color:#660099;}
+a{--link-color:#0033CC;color:var(--link-color);text-decoration:underline;}
+a:visited{color:var(--link-color);}
 a:hover{color:#FF6600;}
 
 /* ── Animations ── */
@@ -30,21 +30,13 @@ a:hover{color:#FF6600;}
 @keyframes sectionFade{0%{opacity:0;transform:translateY(4px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes loadingDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 @keyframes errorBlink{0%,40%{opacity:1}41%,80%{opacity:.4}81%,100%{opacity:1}}
-@keyframes pipeFlow{0%,16%{background:#FFCC00;border-color:#CC8800;box-shadow:0 0 6px rgba(255,204,0,.7)}17%,100%{background:#1a3a5a;border-color:#2a4a6a;box-shadow:none}}
-@keyframes pipeLineFlow{0%,16%{background:#FFCC00;box-shadow:0 0 5px rgba(255,204,0,.55)}17%,100%{background:#1a3a5a;box-shadow:none}}
 
 /* ── Layout: root flex column ── */
-#root{display:flex;flex-direction:column;height:100vh;width:100%;}
-
-/* ── Marquee ── */
-.marquee{
-  background:#003366;color:#FFCC00;
-  font-size:12px;font-family:'Courier New',monospace;
-  padding:4px 10px;
-  border-bottom:2px solid #001a33;
-  text-align:center;letter-spacing:1px;
+#root{
+  display:flex;flex-direction:column;
+  height:100vh;height:100dvh;
+  width:100%;min-height:0;
 }
-.marquee-text{display:inline-block;}
 
 /* ── Header ── */
 .header-wrap{
@@ -73,17 +65,6 @@ a:hover{color:#FF6600;}
   margin-top:3px;min-height:18px;
 }
 .header-subtitle .cursor{font-weight:bold;animation:blinkAnim 1s step-end infinite;}
-.header-badges{margin-left:auto;display:flex;gap:8px;flex-shrink:0;}
-.status-pill{
-  background:#0d3d1a;color:#4CAF50;border:1px solid #2a6a2a;
-  font-family:'Courier New',monospace;font-size:11px;padding:3px 8px;
-  display:flex;align-items:center;gap:4px;
-}
-.status-pill .dot{
-  width:6px;height:6px;border-radius:50%;background:#4CAF50;
-  display:inline-block;animation:dotPulse 2s ease-in-out infinite;
-}
-
 /* ── Body row: sidebar + content ── */
 .body-row{display:flex;flex:1;min-height:0;}
 
@@ -99,6 +80,8 @@ a:hover{color:#FF6600;}
   text-transform:uppercase;letter-spacing:1px;
   padding:7px 10px;border-bottom:1px solid #002244;text-align:center;
 }
+.mobile-menu-toggle{display:none;}
+.mobile-nav-panel{display:contents;}
 .sidebar-nav-wrap{display:flex;flex-direction:column;}
 .nav-btn{
   display:block;width:100%;padding:9px 14px;
@@ -116,7 +99,7 @@ a:hover{color:#FF6600;}
 
 .sidebar-bottom{flex:1;display:flex;flex-direction:column;justify-content:flex-end;}
 .sidebar-links{padding:8px 10px;border-top:1px solid #004d80;}
-.sb-link{display:block;color:#88BBDD;font-size:11px;padding:4px 0;text-decoration:none;}
+.sb-link{--link-color:#88BBDD;display:block;color:var(--link-color);font-size:11px;padding:4px 0;text-decoration:none;}
 .sb-link:hover{color:#FFCC00;text-decoration:underline;}
 .sb-link::before{content:'» ';color:#CC8800;}
 
@@ -127,7 +110,7 @@ a:hover{color:#FF6600;}
 .system-status .ss-title{
   background:linear-gradient(to right,#003366,#005580);
   color:#fff;font-size:10px;font-weight:bold;
-  padding:4px 8px;display:flex;align-items:center;gap:5px;
+  padding:4px 8px;
 }
 .system-status .ss-title .dot{
   width:7px;height:7px;border-radius:50%;background:#33FF33;
@@ -139,42 +122,6 @@ a:hover{color:#FF6600;}
 .system-status .ss-val{color:#FFCC00;}
 .system-status .ss-val.green{color:#33FF33;}
 
-.pipeline-widget{margin:0 8px 10px;border:1px solid #001a33;}
-.pipeline-title{
-  background:linear-gradient(to right,#003366,#005580);
-  color:#fff;font-family:'Courier New',monospace;font-size:10px;font-weight:bold;
-  padding:4px 8px;text-align:center;border-bottom:1px solid #001a33;
-}
-.pipeline-canvas{
-  background:#070d14;padding:9px 12px 8px;
-  font-family:'Courier New',monospace;font-size:10px;color:#88AACC;
-}
-.pipeline-meta{
-  color:#FFCC00;font-size:9px;letter-spacing:1px;
-  border-bottom:1px solid #1a2a3a;padding-bottom:5px;margin-bottom:7px;
-}
-.pipe-stage{display:flex;align-items:center;gap:8px;line-height:1.2;height:14px;}
-.pipe-dot{
-  width:6px;height:6px;border-radius:50%;background:#1a3a5a;
-  border:1px solid #2a4a6a;flex-shrink:0;
-  animation:pipeFlow 5s linear infinite;
-  animation-delay:var(--d,0s);
-}
-.pipe-label{color:#AACCDD;font-size:10px;letter-spacing:.5px;white-space:nowrap;}
-.pipe-label .muted{color:#6688AA;}
-.pipe-line{
-  width:1px;height:7px;background:#1a3a5a;margin-left:3px;
-  animation:pipeLineFlow 5s linear infinite;
-  animation-delay:var(--d,0s);
-}
-.pipeline-status{
-  margin-top:7px;padding-top:6px;border-top:1px solid #1a2a3a;
-  display:flex;align-items:center;justify-content:space-between;gap:6px;
-  font-size:10px;color:#FFCC00;letter-spacing:1px;
-}
-.pipeline-status-left{display:flex;align-items:center;gap:6px;}
-.ps-dot{width:7px;height:7px;border-radius:50%;background:#33FF33;animation:dotPulse 2s ease-in-out infinite;}
-.source-lock{color:#88AACC;font-size:9px;}
 .sidebar-links-row{display:none;}
 
 /* ── Content area ── */
@@ -192,10 +139,10 @@ a:hover{color:#FF6600;}
 
 /* Sections */
 [data-section]{display:none;}
+[data-section]:focus{outline:none;}
 [data-section].section-active{animation:sectionFade .2s ease forwards;}
 [data-section="ask"].section-active{display:flex;flex-direction:column;flex:1;min-height:0;}
-[data-section="about"].section-active,
-[data-section="architecture"].section-active{display:block;}
+[data-section="about"].section-active{display:block;}
 
 /* Section heading */
 .page-kicker{
@@ -214,9 +161,6 @@ a:hover{color:#FF6600;}
   display:flex;align-items:center;gap:9px;
 }
 
-/* Ask workspace structure */
-.ask-header{padding:14px 0 10px 0;}
-
 .ask-workspace{
   display:flex;flex-direction:column;flex:1;min-height:0;
   max-width:980px;margin:0 auto;width:100%;
@@ -226,18 +170,33 @@ a:hover{color:#FF6600;}
 #chat-container{
   flex:1;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:16px;
-  padding:16px 0;
+  padding:0 0 8px;
   width:100%;
+  scrollbar-width:thin;
+  scrollbar-color:#1a4a7a #050e1a;
 }
-#welcome{padding:8px 0 16px;}
-.welcome-intro{font-size:16px;color:#333;margin-bottom:16px;line-height:1.7;}
+#chat-container::-webkit-scrollbar{width:8px;}
+#chat-container::-webkit-scrollbar-track{
+  background:#050e1a;
+  border-left:1px solid #001a33;
+}
+#chat-container::-webkit-scrollbar-thumb{
+  background:#1a4a7a;
+  border:1px solid #003366;
+}
+#chat-container::-webkit-scrollbar-thumb:hover{
+  background:#CC8800;
+  border-color:#FFCC00;
+}
+#welcome{padding:0;}
+.welcome-intro{font-size:16px;color:#333;margin-bottom:10px;line-height:1.7;}
 .welcome-examples-title{
   font-size:14px;font-weight:bold;color:#0d3d7c;
   text-transform:uppercase;letter-spacing:1px;
-  margin-bottom:10px;font-family:Verdana,sans-serif;
+  margin-bottom:8px;font-family:Verdana,sans-serif;
   border-bottom:1px solid #aabbcc;padding-bottom:5px;
 }
-.example-questions{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;}
+.example-questions{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:0;}
 .example-trigger{
   background:#e0e8f0;
   border:1px solid #aabbcc;
@@ -269,17 +228,10 @@ a:hover{color:#FF6600;}
 .message.user::before{content:'> ';color:#33FF33;font-weight:bold;}
 
 .message.assistant{
-  background:#f5f8fc;border:1px solid #aabbcc;
+  background:transparent;border:none;border-top:1px solid #b0c4d8;
   display:flex;flex-direction:column;
+  padding-top:4px;
 }
-.assistant-strip{
-  background:#0d3d7c;color:#FFCC00;
-  font-family:'Courier New',monospace;font-size:11px;font-weight:bold;
-  letter-spacing:1px;padding:4px 12px;
-  display:flex;align-items:center;justify-content:space-between;
-  gap:12px;
-}
-.assistant-strip .meta{color:#88AACC;font-weight:normal;}
 .assistant-body{padding:14px 18px;}
 .message.assistant .answer{
   font-family:Verdana,sans-serif;font-size:15px;color:#222;
@@ -299,6 +251,8 @@ a:hover{color:#FF6600;}
 .answer-rendered ol{margin:6px 0 12px 22px;}
 .answer-rendered li{margin:4px 0;}
 .answer-rendered table{border-collapse:collapse;width:100%;margin:10px 0 14px;font-size:14px;}
+.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.answer-rendered .table-scroll table{width:max-content;min-width:100%;}
 .answer-rendered th,
 .answer-rendered td{border:1px solid #aabbcc;padding:6px 8px;text-align:left;vertical-align:top;}
 .answer-rendered th{background:#ccd9e8;color:#003355;font-weight:bold;}
@@ -307,7 +261,7 @@ a:hover{color:#FF6600;}
 .answer-rendered pre code{background:transparent;color:inherit;padding:0;}
 
 .sources{
-  border-top:1px solid #aabbcc;padding:12px 18px 16px;margin-top:16px;
+  border-top:1px solid #b0c4d8;padding:12px 18px 16px;margin-top:16px;
   font-family:Verdana,sans-serif;font-size:13px;color:#003355;
 }
 .sources strong{
@@ -394,19 +348,27 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 
 /* ── Input area ── */
 #input-area{
-  border-top:2px solid #aabbcc;
-  background:#ccd9e8;
+  border-top:1px solid #b0c4d8;
+  background:transparent;
   padding:12px 14px;margin-top:auto;
   flex-shrink:0;
   width:100%;
+  position:relative;
 }
+.command-feedback{
+  position:absolute;right:14px;bottom:calc(100% + 8px);z-index:5;
+  padding:6px 10px;
+  background:#07131f;color:#33FF33;
+  border:1px solid #CC8800;
+  box-shadow:2px 2px 0 rgba(0,26,51,.35);
+  font:700 11px 'Courier New',monospace;
+  letter-spacing:.8px;text-transform:uppercase;
+  pointer-events:none;
+}
+.command-feedback::before{content:'✓ ';color:#FFCC00;}
 #input-area form{
   display:flex;align-items:center;gap:8px;
-  max-width:100%;
-}
-.input-prompt{
-  font-family:'Courier New',monospace;font-size:16px;font-weight:bold;
-  color:#0d3d7c;flex-shrink:0;
+  width:100%;
 }
 .form-input{
   font-family:Verdana,sans-serif;font-size:15px;
@@ -415,6 +377,11 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
   flex:1;min-width:0;min-height:38px;color:#222;
 }
 .form-input::placeholder{color:#999;}
+.form-input.command-input{
+  color:#CC8800;
+  font-family:'Courier New',monospace;
+  font-weight:bold;
+}
 .form-input:focus-visible{
   outline:2px solid #FFCC00;outline-offset:2px;
   border-color:#0d3d7c;
@@ -430,33 +397,33 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 .submit-btn:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 .submit-btn:disabled{opacity:.5;cursor:not-allowed;border-style:outset;background:#E0E0E0;}
 
-/* ── About / Architecture sections ── */
-.about-body,.architecture-body{max-width:980px;margin:0 auto;}
-.about-body p{margin-bottom:16px;font-size:16px;line-height:1.7;color:#333;}
-.architecture-lede{margin-bottom:16px;font-size:16px;color:#333;}
-.architecture-notes{margin-top:16px;font-size:15px;color:#333;line-height:1.7;}
+/* ── About section ── */
+.about-body{max-width:980px;margin:0 auto;}
+.about-body p{margin-bottom:14px;font-size:14px;line-height:1.7;color:#222;font-family:Verdana,Tahoma,sans-serif;}
+.about-intro{padding-bottom:14px;border-bottom:1px solid #aabbcc;margin-bottom:16px;}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;}
+.about-subhead{
+  font-size:11px;font-weight:bold;color:#FFCC00;
+  font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:1px;
+  background:#0d3d7c;padding:4px 8px;margin-bottom:8px;
+  display:block;
+}
 .inline-code{
   font-family:'Courier New',monospace;background:#0a0f14;color:#FFCC00;
-  padding:1px 4px;font-size:15px;
+  padding:1px 4px;font-size:13px;
 }
-.tech-table{border-collapse:collapse;margin:10px 0 14px;font-size:15px;}
-.tech-table td{padding:3px 14px 3px 0;vertical-align:top;}
-.tech-table td.k{font-weight:bold;color:#003355;white-space:nowrap;}
-.tech-table td.v{color:#333;}
+.tech-table{border-collapse:collapse;width:100%;margin:0;}
+.tech-table td{padding:5px 12px 5px 0;vertical-align:top;font-size:14px;border-bottom:1px solid #d0dce8;}
+.tech-table tr:last-child td{border-bottom:none;}
+.tech-table td.k{font-weight:bold;color:#003355;white-space:nowrap;font-family:Verdana,sans-serif;width:30%;}
+.tech-table td.v{color:#222;font-family:Verdana,sans-serif;}
 .terminal-block{
   background:#0a0f14;color:#FFCC00;
-  font-family:'Courier New',monospace;font-size:13px;
+  font-family:'Courier New',monospace;font-size:12px;
   padding:11px 14px;border:1px solid #1a3a1a;
-  margin:10px 0;overflow-x:auto;white-space:pre;line-height:1.5;
+  margin:0 0 16px;overflow-x:auto;white-space:pre;line-height:1.6;
 }
 .terminal-block.green{color:#33FF33;}
-.about-quick{
-  margin:18px 0;background:#0a0f14;border:1px solid #1a3a1a;
-  padding:10px 14px;font-family:'Courier New',monospace;font-size:12px;
-  display:flex;flex-wrap:wrap;gap:0 28px;line-height:2;
-}
-.about-quick .k{color:#88AACC;margin-right:6px;}
-.about-quick .v{color:#FFCC00;}
 
 /* ── Footer ── */
 .footer{
@@ -466,41 +433,87 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 }
 .footer-copy{font-size:11px;color:#88AACC;font-family:'Courier New',monospace;}
 
-/* ── Mobile ── */
+/* ── Responsive layout ── */
+@media(min-width:769px) and (max-width:1200px){
+  .example-questions{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(min-width:769px) and (max-width:1100px){
+  .about-grid{grid-template-columns:minmax(0,1fr);}
+}
 @media(max-width:768px){
-  .sidebar{width:100%;flex-direction:row;flex-wrap:wrap;}
+  .sidebar{width:100%;display:block;border-right:none;border-bottom:2px solid #001a33;}
   .sidebar-section-title{display:none;}
-  .sidebar-nav-wrap{display:flex;flex-wrap:wrap;flex:1;}
-  .nav-btn{flex:1 1 auto;text-align:center;padding:10px 6px;font-size:11px;border-right:1px solid #001a33;border-left:none!important;padding-left:6px;}
-  .nav-btn.active{padding-left:6px;border-bottom:3px solid #FFCC00;border-left:none;}
+  .mobile-menu-toggle{
+    display:flex;align-items:center;justify-content:flex-start;gap:9px;width:100%;
+    padding:10px 14px;background:linear-gradient(to bottom,#004477,#003366);
+    color:#fff;border:0;border-bottom:1px solid #001a33;
+    font:700 12px Verdana,sans-serif;letter-spacing:.5px;cursor:pointer;
+  }
+  .mobile-menu-toggle::before{content:'☰';color:#FFCC00;font-size:18px;line-height:1;}
+  .sidebar.mobile-menu-open .mobile-menu-toggle::before{content:'×';}
+  .mobile-menu-toggle:focus-visible{outline:2px solid #FFCC00;outline-offset:-2px;}
+  .mobile-nav-panel{display:none;background:#0f3d72;}
+  .sidebar.mobile-menu-open .mobile-nav-panel{display:block;}
+  .sidebar-nav-wrap{display:grid;grid-template-columns:1fr 1fr;}
+  .nav-btn{
+    width:100%;text-align:center;padding:13px 10px;font-size:13px;
+    border-right:1px solid #001a33;border-left:none!important;
+  }
+  .nav-btn:last-child{border-right:none;}
+  .nav-btn.active{padding-left:10px;border-left:none;border-bottom:3px solid #FFCC00;}
   .sidebar-bottom{display:none;}
-  .sidebar-links-row{display:flex;gap:16px;padding:8px 12px;border-top:1px solid #004d80;width:100%;background:#002d4d;}
-  .sidebar-links-row a{color:#88BBDD;font-size:11px;text-decoration:none;}
-  .sidebar-links-row a::before{content:'» ';color:#CC8800;}
+  .sidebar-links-row{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+    padding:0;border-top:1px solid #004d80;width:100%;background:#002d4d;
+  }
+  .sidebar-links-row a{
+    --link-color:#88BBDD;color:var(--link-color);font-size:10px;text-align:center;text-decoration:none;
+    padding:10px 4px;border-right:1px solid #001a33;
+  }
+  .sidebar-links-row a:last-child{border-right:none;}
+  .sidebar-links-row a:hover{color:#FFCC00;}
+  .nav-arrow,.sidebar-links-row a::before{display:none;}
   .content-inner{padding:18px 16px;max-width:100%;}
+  .example-questions{grid-template-columns:repeat(2,1fr);}
+  .about-grid{grid-template-columns:1fr;}
   .body-row{flex-direction:column;}
-  .about-quick{flex-direction:column;gap:0;}
   .form-input{min-height:36px;font-size:14px;}
   .submit-btn{min-height:36px;}
   .message{margin-bottom:12px;}
   .source-list{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
-  table,pre{max-width:100%;overflow-x:auto;}
+  pre{max-width:100%;overflow-x:auto;}
+}
+@media(max-width:600px){
+  .source-list{grid-template-columns:minmax(0,1fr);}
 }
 @media(max-width:480px){
-  .header-h1{font-size:18px;}
-  .header-wrap{flex-direction:column;align-items:flex-start;gap:6px;padding:12px 14px;}
-  .header-badges{margin-left:0;}
+  .header-wrap{flex-direction:row;align-items:center;gap:12px;padding:13px 14px 14px;}
+  .globe{width:32px;height:32px;}
+  .header-copy{min-width:0;}
+  .header-h1{font-size:18px;line-height:1.15;}
+  .header-subtitle{font-size:11px;line-height:1.25;margin-top:5px;min-height:14px;}
   .section-heading{font-size:19px;}
-  .input-prompt{display:none;}
-  #input-area{padding:10px;}
-  #input-area form{gap:6px;}
-  .form-input,.submit-btn{min-height:44px;font-size:16px;}
-  #chat-container{max-width:100%;padding:0 8px;}
-  .content-inner{max-width:100%;padding:0 8px;}
-  .ask-header{padding:16px 8px 12px 8px;}
-  .source-list{grid-template-columns:minmax(0,1fr);}
-  .example-questions{display:none;}
-  table,pre,.source-link{max-width:100%;overflow-x:auto;}
+  #input-area{
+    border-top:3px solid #CC8800;
+    padding:12px 8px 10px;
+  }
+  .command-feedback{right:8px;bottom:calc(100% + 7px);}
+  #input-area form{gap:5px;}
+  .form-input{
+    min-height:36px;
+    padding:5px 7px;
+    font-size:14px;
+  }
+  .submit-btn{
+    min-height:36px;
+    padding:5px 12px;
+    font-size:12px;
+  }
+  #chat-container{max-width:100%;padding:0 8px 8px;}
+  .content-inner{max-width:100%;padding:12px 8px;}
+  .example-questions{grid-template-columns:1fr;}
+  .example-trigger{font-size:14px;padding:8px 10px;}
+  pre,.source-link{max-width:100%;}
   button:focus-visible,input:focus-visible,a:focus-visible{outline-offset:0;}
   .page-kicker{font-size:14px;}
   .message{padding:8px;margin-bottom:8px;}
@@ -508,6 +521,51 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
   .source-card{grid-template-columns:auto minmax(0,1fr);}
   .source-service{display:none;}
   .source-link{font-size:12px;}
+}
+
+/* ── Large-screen scaling: 1440p at any OS scaling ── */
+@media(min-width:1440px){
+  body{font-size:17px;}
+  .sidebar{width:256px;min-width:240px;}
+  .content-inner{max-width:1080px;padding:30px 48px;}
+  .header-h1{font-size:26px;}
+  .header-subtitle{font-size:13px;}
+  .section-heading{font-size:24px;}
+  .welcome-intro{font-size:17px;}
+  .welcome-examples-title{font-size:15px;}
+  .example-trigger{font-size:14px;padding:8px 12px;}
+  .message.user{font-size:16px;}
+  .message.assistant .answer,
+  .answer-rendered{font-size:17px;line-height:1.8;}
+  .answer-rendered h3{font-size:20px;}
+  .answer-rendered h4{font-size:18px;}
+  .answer-rendered h5{font-size:17px;}
+  .answer-rendered pre,.answer-rendered code{font-size:14px;}
+  .about-body p{font-size:16px;}
+  .tech-table td{font-size:15px;}
+  .form-input{font-size:17px;min-height:42px;}
+  .submit-btn{font-size:14px;min-height:42px;padding:6px 26px;}
+  .nav-btn{font-size:13px;padding:11px 16px;}
+  .system-status .ss-key{width:76px;}
+  .sources{font-size:14px;}
+  .source-link{font-size:13px;}
+  .assistant-strip{font-size:12px;}
+}
+/* ── 4K / very large displays ── */
+@media(min-width:2400px){
+  body{font-size:19px;}
+  .sidebar{width:280px;}
+  .content-inner{max-width:1260px;padding:36px 56px;}
+  .header-h1{font-size:29px;}
+  .section-heading{font-size:27px;}
+  .welcome-intro{font-size:19px;}
+  .message.assistant .answer,
+  .answer-rendered{font-size:19px;}
+  .answer-rendered h3{font-size:23px;}
+  .form-input{font-size:19px;min-height:46px;}
+  .submit-btn{font-size:16px;min-height:46px;}
+  .about-body p{font-size:18px;}
+  .tech-table td{font-size:16px;}
 }
 
 /* ── Accessibility: Reduced Motion ── */
@@ -525,7 +583,7 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
   display:flex;
   gap:8px;
   margin-top:8px;
-  padding-top:8px;
+  padding:10px 18px 16px;
   border-top:1px solid #aabbcc;
   font-size:12px;
 }
@@ -551,51 +609,17 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
   outline-offset:2px;
 }
 
-.secondary-btn{
-  margin-top:8px;
-  padding:6px 10px;
-  background:#edf3f8;
-  border:1px solid #aabbcc;
-  color:#003355;
-  cursor:pointer;
-  font-family:Verdana,sans-serif;
-  font-size:13px;
-  border-radius:0;
-  transition:background 0.1s;
-}
-
-.secondary-btn:hover{
-  background:#d4e3f0;
-}
-
-.secondary-btn:focus-visible{
-  outline:2px solid #FFCC00;
-  outline-offset:2px;
-}
-
-.secondary-btn:disabled{
-  opacity:0.5;
-  cursor:not-allowed;
-}
 </style>
 </head>
 <body>
 <div id="root">
 
-  <!-- Marquee -->
-  <div class="marquee">
-    <span class="marquee-text">AWS DOCS RAG NODE :: SONNET 4.6 ROUTE ONLINE :: GROUNDED ANSWERS + SOURCE LINKS</span>
-  </div>
-
   <!-- Header -->
   <div class="header-wrap">
     <div class="globe"></div>
-    <div>
+    <div class="header-copy">
       <h1 class="header-h1">AWS Docs RAG</h1>
       <div class="header-subtitle"><span id="typing-text"></span><span class="cursor">_</span></div>
-    </div>
-    <div class="header-badges">
-      <span class="status-pill"><span class="dot"></span>SONNET 4.6</span>
     </div>
   </div>
 
@@ -604,11 +628,17 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
 
     <!-- Sidebar -->
     <div class="sidebar">
-      <div class="sidebar-section-title">▪ Navigation</div>
-      <div class="sidebar-nav-wrap">
-        <button class="nav-btn active" onclick="navigate('ask',this)"><span class="nav-arrow">►</span>Ask</button>
-        <button class="nav-btn" onclick="navigate('about',this)"><span class="nav-arrow">►</span>About</button>
-        <button class="nav-btn" onclick="navigate('architecture',this)"><span class="nav-arrow">►</span>Architecture</button>
+      <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav-panel" onclick="toggleMobileMenu(this)">Menu</button>
+      <div class="mobile-nav-panel" id="mobile-nav-panel">
+        <div class="sidebar-nav-wrap">
+          <button class="nav-btn active" onclick="navigate('ask',this)"><span class="nav-arrow" aria-hidden="true">►</span>Ask</button>
+          <button class="nav-btn" onclick="navigate('about',this)"><span class="nav-arrow" aria-hidden="true">►</span>About</button>
+        </div>
+        <div class="sidebar-links-row">
+          <a href="https://github.com/micronwave/aws-rag-project" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/micronwave" target="_blank" rel="noopener">Projects</a>
+          <a href="https://www.linkedin.com/in/aaronaltergott/" target="_blank" rel="noopener">LinkedIn</a>
+        </div>
       </div>
 
       <div class="sidebar-bottom">
@@ -620,7 +650,7 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
         </div>
 
         <div class="system-status">
-          <div class="ss-title"><span class="dot"></span>SYSTEM STATUS</div>
+          <div class="ss-title">SYSTEM STATUS</div>
           <div class="ss-body">
             <div class="ss-row"><span class="ss-key">Time</span><span class="ss-val" id="clock-time">--:--:--</span></div>
             <div class="ss-row"><span class="ss-key">Date</span><span class="ss-val" id="clock-date">--.--.--</span></div>
@@ -629,119 +659,74 @@ a.source-link:focus-visible{outline:2px solid #FFCC00;outline-offset:2px;}
           </div>
         </div>
 
-        <div class="pipeline-widget">
-          <div class="pipeline-title">◆ RAG REQUEST BUS ◆</div>
-          <div class="pipeline-canvas">
-            <div class="pipeline-meta">CLOUDFRONT → BEDROCK</div>
-            <div class="pipe-stage" style="--d:0s"><span class="pipe-dot"></span><span class="pipe-label">Question <span class="muted">in</span></span></div>
-            <div class="pipe-line" style="--d:.5s"></div>
-            <div class="pipe-stage" style="--d:1s"><span class="pipe-dot"></span><span class="pipe-label">Titan Embed</span></div>
-            <div class="pipe-line" style="--d:1.5s"></div>
-            <div class="pipe-stage" style="--d:2s"><span class="pipe-dot"></span><span class="pipe-label">Pinecone KNN</span></div>
-            <div class="pipe-line" style="--d:2.5s"></div>
-            <div class="pipe-stage" style="--d:3s"><span class="pipe-dot"></span><span class="pipe-label">Claude 4.6</span></div>
-            <div class="pipe-line" style="--d:3.5s"></div>
-            <div class="pipe-stage" style="--d:4s"><span class="pipe-dot"></span><span class="pipe-label">Answer + URLs</span></div>
-            <div class="pipeline-status">
-              <span class="pipeline-status-left"><span class="ps-dot"></span>READY</span>
-              <span class="source-lock">SRC LOCK</span>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <div class="sidebar-links-row">
-        <a href="https://github.com/micronwave/aws-rag-project" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/micronwave" target="_blank" rel="noopener">Projects</a>
-        <a href="https://www.linkedin.com/in/aaronaltergott/" target="_blank" rel="noopener">LinkedIn</a>
-      </div>
     </div>
+
 
     <!-- Content -->
     <div class="content-area">
       <div class="content-inner section-in">
 
         <!-- Ask -->
-        <div data-section="ask" class="section-active">
-          <div class="page-kicker">Interactive Query</div>
-          <div class="ask-header">
-            <h2 class="section-heading">▪ Ask</h2>
-          </div>
-
+        <div data-section="ask" class="section-active" tabindex="-1">
           <div class="ask-workspace">
             <div id="chat-container" aria-live="polite" aria-atomic="false">
             <div id="welcome">
-              <p class="welcome-intro">Ask anything about AWS. The system retrieves relevant chunks from official AWS documentation, then generates a grounded answer with source citations.</p>
+              <p class="welcome-intro">Ask anything about AWS.</p>
               <div class="welcome-examples-title">▪ Example Questions</div>
               <div class="example-questions">
                 <button class="example-trigger" onclick="askQuestion('How do I create an S3 bucket policy?')">How do I create an S3 bucket policy?</button>
                 <button class="example-trigger" onclick="askQuestion('What are Lambda execution roles?')">What are Lambda execution roles?</button>
                 <button class="example-trigger" onclick="askQuestion('How do I set up a VPC with public and private subnets?')">How do I set up a VPC with public and private subnets?</button>
                 <button class="example-trigger" onclick="askQuestion('What is DynamoDB and when should I use it?')">What is DynamoDB and when should I use it?</button>
+                <button class="example-trigger" onclick="askQuestion('How do I set up CloudWatch monitoring for Lambda?')">How do I set up CloudWatch monitoring for Lambda?</button>
+                <button class="example-trigger" onclick="askQuestion('What is the difference between SQS and SNS?')">What is the difference between SQS and SNS?</button>
               </div>
             </div>
           </div>
 
           <div id="input-area">
+            <div id="command-feedback" class="command-feedback" role="status" aria-live="polite" hidden>Chat cleared</div>
             <form onsubmit="handleSubmit(event)">
-              <span class="input-prompt">&gt;</span>
               <input type="text" id="question-input" class="form-input" placeholder="Ask a question about AWS..." autocomplete="off">
               <button type="submit" id="submit-btn" class="submit-btn">[ Ask ]</button>
             </form>
-            <button type="button" id="clear-chat-btn" class="secondary-btn">Clear Chat</button>
           </div>
           </div>
         </div>
 
         <!-- About -->
-        <div data-section="about">
-          <div class="page-kicker">System Overview</div>
-          <h2 class="section-heading">▪ About</h2>
+        <div data-section="about" tabindex="-1">
           <div class="about-body">
-            <p>A full-stack RAG (Retrieval-Augmented Generation) system that answers questions about AWS services using actual AWS documentation as its knowledge base. Semantic search over indexed docs, grounded answers via Claude, source citations back to original pages.</p>
-            <p>Questions are embedded with Titan Embeddings v2, matched against a Pinecone vector index of AWS documentation chunks, and answered by Claude Sonnet 4.6 — all routed through Amazon Bedrock. The frontend is a single static HTML file served from S3 via CloudFront with Origin Access Control.</p>
+            <p class="about-intro">Full-stack RAG system answering questions about AWS using official AWS documentation. Questions are embedded with Titan v2, matched against a Pinecone vector index, and answered by Claude Sonnet 4.6 via Amazon Bedrock. Frontend served from S3 via CloudFront with Origin Access Control.</p>
 
-            <div class="about-quick">
-              <div><span class="k">LLM:</span><span class="v">Claude Sonnet 4.6</span></div>
-              <div><span class="k">Embeddings:</span><span class="v">Titan Embeddings v2</span></div>
-              <div><span class="k">Vector DB:</span><span class="v">Pinecone</span></div>
-              <div><span class="k">Compute:</span><span class="v">Lambda + API Gateway</span></div>
-              <div><span class="k">Frontend:</span><span class="v">S3 + CloudFront</span></div>
+            <div class="about-grid">
+              <div>
+                <span class="about-subhead">▪ Stack</span>
+                <table class="tech-table">
+                  <tbody>
+                    <tr><td class="k">LLM</td><td class="v">Claude Sonnet 4.6 (Bedrock)</td></tr>
+                    <tr><td class="k">Embeddings</td><td class="v">Titan Embeddings v2</td></tr>
+                    <tr><td class="k">Vector DB</td><td class="v">Pinecone (free tier)</td></tr>
+                    <tr><td class="k">Compute</td><td class="v">Lambda + API Gateway (REST)</td></tr>
+                    <tr><td class="k">Frontend</td><td class="v">S3 + CloudFront (OAC)</td></tr>
+                    <tr><td class="k">Region</td><td class="v">us-east-2</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <span class="about-subhead">▪ Request Flow</span>
+                <pre class="terminal-block">User → CloudFront → API Gateway → Lambda
+  ├── Embed question   (Titan v2 via Bedrock)
+  ├── Search Pinecone  (top-5 chunks)
+  ├── Build prompt     (context injection)
+  ├── Generate answer  (Claude via Bedrock)
+  └── Return           (response + sources)</pre>
+                <span class="about-subhead">▪ Security</span>
+                <p>OAC blocks all direct S3 access — only signed CloudFront requests are served. Lambda pins <code class="inline-code">Access-Control-Allow-Origin</code> to the CloudFront domain. Input is sanitized before embedding; source URLs are validated as <code class="inline-code">http(s)://</code> before render.</p>
+              </div>
             </div>
-
-            <div class="welcome-examples-title">▪ Stack</div>
-            <table class="tech-table">
-              <tbody>
-                <tr><td class="k">LLM</td><td class="v">Claude Sonnet 4.6 via Amazon Bedrock</td></tr>
-                <tr><td class="k">Embeddings</td><td class="v">Amazon Titan Embeddings v2</td></tr>
-                <tr><td class="k">Vector DB</td><td class="v">Pinecone (free tier)</td></tr>
-                <tr><td class="k">Compute</td><td class="v">AWS Lambda + API Gateway (REST)</td></tr>
-                <tr><td class="k">Frontend</td><td class="v">Static HTML on S3 + CloudFront (OAC)</td></tr>
-                <tr><td class="k">Region</td><td class="v">us-east-2</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Architecture -->
-        <div data-section="architecture">
-          <div class="page-kicker">Request Flow</div>
-          <h2 class="section-heading">▪ Architecture</h2>
-          <div class="architecture-body">
-          <p class="architecture-lede">End-to-end request flow from browser to answer.</p>
-          <pre class="terminal-block">User → CloudFront → API Gateway → Lambda
-                            ├── Embed question (Titan v2 via Bedrock)
-                            ├── Search Pinecone (top 5 chunks)
-                            ├── Build prompt with context
-                            ├── Generate answer (Claude via Bedrock)
-                            └── Return response + sources</pre>
-
-          <div class="welcome-examples-title" style="margin-top:18px;">▪ Notes</div>
-          <p class="architecture-notes">
-            CloudFront uses Origin Access Control (OAC) — the S3 bucket blocks all public access and serves only signed CloudFront requests.
-            The Lambda enforces a strict <code class="inline-code">Access-Control-Allow-Origin</code> header pinned to the CloudFront domain.
-            Question text is sanitized before embedding, and source URLs are validated as <code class="inline-code">http(s)://</code> before being rendered as clickable links.
-          </p>
           </div>
         </div>
 
@@ -762,12 +747,41 @@ const REQUEST_TIMEOUT_MS = 30000;
 const STAGE_TIMINGS_MS = [0, 800, 2000, 3400, 5000];
 
 const chatContainer = document.getElementById('chat-container');
+const welcome = document.getElementById('welcome');
 const questionInput = document.getElementById('question-input');
 const submitBtn = document.getElementById('submit-btn');
-const clearChatBtn = document.getElementById('clear-chat-btn');
+const commandFeedback = document.getElementById('command-feedback');
 let hasAsked = false;
 let submitInProgress = false;
 let stageTimerIds = [];
+let commandFeedbackTimerId = null;
+
+function syncAppHeight() {
+    if (typeof window === 'undefined') return;
+    const root = document.getElementById('root');
+    if (!root) return;
+    const viewportHeight = window.visualViewport && window.visualViewport.height
+        ? window.visualViewport.height
+        : window.innerHeight;
+    if (viewportHeight) {
+        root.style.height = Math.round(viewportHeight) + 'px';
+    }
+    if (
+        document.activeElement === questionInput &&
+        typeof questionInput.scrollIntoView === 'function'
+    ) {
+        questionInput.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+}
+
+if (typeof window !== 'undefined') {
+    syncAppHeight();
+    window.addEventListener('resize', syncAppHeight);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncAppHeight);
+        window.visualViewport.addEventListener('scroll', syncAppHeight);
+    }
+}
 
 function scrollChatToBottom() {
     const chat = document.getElementById('chat-container');
@@ -789,8 +803,23 @@ function copyText(text) {
     return navigator.clipboard.writeText(text);
 }
 
+function isClearCommand(value) {
+    return /^\s*\/\s*clear\s*$/i.test(String(value || ''));
+}
+
+function syncCommandInputStyle() {
+    if (isClearCommand(questionInput.value)) {
+        addClass(questionInput, 'command-input');
+    } else {
+        removeClass(questionInput, 'command-input');
+    }
+}
+
+questionInput.addEventListener('input', syncCommandInputStyle);
+
 function askQuestion(text) {
     questionInput.value = text;
+    syncCommandInputStyle();
     handleSubmit(new Event('submit'));
 }
 
@@ -823,12 +852,30 @@ async function readResponseBody(resp) {
 
 function clearNode(container) {
     container.textContent = '';
-    if (Array.isArray(container.children)) {
-        container.children.length = 0;
+}
+
+function showCommandFeedback(message) {
+    if (!commandFeedback) return;
+    if (commandFeedbackTimerId !== null) clearTimeout(commandFeedbackTimerId);
+    commandFeedback.textContent = message;
+    commandFeedback.hidden = false;
+    commandFeedbackTimerId = setTimeout(function () {
+        commandFeedback.hidden = true;
+        commandFeedbackTimerId = null;
+    }, 1800);
+}
+
+function resetChat() {
+    clearNode(chatContainer);
+    hasAsked = false;
+    if (welcome) {
+        welcome.style.display = '';
+        chatContainer.appendChild(welcome);
     }
-    while (container.firstChild && typeof container.removeChild === 'function') {
-        container.removeChild(container.firstChild);
-    }
+    questionInput.value = '';
+    syncCommandInputStyle();
+    questionInput.focus();
+    showCommandFeedback('Chat cleared');
 }
 
 function isValidHttpUrl(text) {
@@ -882,13 +929,21 @@ function appendTextWithLinks(parent, text) {
 }
 
 function appendTextWithInlineCode(parent, text) {
-    const parts = String(text).split(/(`[^`]+`)/g);
+    const parts = String(text).split(/(`[^`]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g);
     parts.forEach(function (part) {
         if (!part) return;
         if (part.length > 1 && part[0] === '`' && part[part.length - 1] === '`') {
             const code = document.createElement('code');
             code.textContent = part.slice(1, -1);
             parent.appendChild(code);
+        } else if (part.length > 3 && part.slice(0, 2) === '**' && part.slice(-2) === '**') {
+            const strong = document.createElement('strong');
+            appendTextWithLinks(strong, part.slice(2, -2));
+            parent.appendChild(strong);
+        } else if (part.length > 1 && part[0] === '*' && part[part.length - 1] === '*') {
+            const em = document.createElement('em');
+            appendTextWithLinks(em, part.slice(1, -1));
+            parent.appendChild(em);
         } else {
             appendTextWithLinks(parent, part);
         }
@@ -927,6 +982,8 @@ function isTableStart(lines, index) {
 }
 
 function parseTable(lines, index, container) {
+    const tableScroll = document.createElement('div');
+    tableScroll.className = 'table-scroll';
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
@@ -951,7 +1008,8 @@ function parseTable(lines, index, container) {
         i++;
     }
     table.appendChild(tbody);
-    container.appendChild(table);
+    tableScroll.appendChild(table);
+    container.appendChild(tableScroll);
     return i;
 }
 
@@ -1047,21 +1105,24 @@ function renderAnswer(container, rawText) {
 async function handleSubmit(e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     const question = questionInput.value.trim();
-    if (!question) return;
+    if (!question || submitInProgress) return;
+
+    if (isClearCommand(question)) {
+        resetChat();
+        return;
+    }
 
     if (!hasAsked) {
         document.getElementById('welcome').style.display = 'none';
         hasAsked = true;
     }
-
-    if (submitInProgress) return;
     submitInProgress = true;
 
     addMessage('user', question);
     questionInput.value = '';
+    syncCommandInputStyle();
 
     submitBtn.disabled = true;
-    clearChatBtn.disabled = true;
     const loadingMsg = addMessage('loading', '');
     loadingMsg.innerHTML = '<div class="loading-title"><span class="loading-dots">Processing RAG request</span></div><div class="loading-stages"><span>Question</span><span>Embed</span><span>Search</span><span>Generate</span><span>Sources</span></div>';
     const loadingStageNodes = Array.from(loadingMsg.querySelectorAll('.loading-stages span'));
@@ -1137,19 +1198,7 @@ async function handleSubmit(e) {
             return true;
         });
         const sourceCount = sourceRows.length;
-        const retrievalLabel = sourceCount === 1 ? '1 source' : sourceCount + ' sources';
         const msgDiv = addMessage('assistant', '');
-
-        const strip = document.createElement('div');
-        strip.className = 'assistant-strip';
-        const stripLeft = document.createElement('span');
-        stripLeft.textContent = '▪ ANSWER';
-        const stripRight = document.createElement('span');
-        stripRight.className = 'meta';
-        stripRight.textContent = 'claude-sonnet-4-6 | ' + retrievalLabel;
-        strip.appendChild(stripLeft);
-        strip.appendChild(stripRight);
-        msgDiv.appendChild(strip);
 
         const body = document.createElement('div');
         body.className = 'assistant-body';
@@ -1240,7 +1289,6 @@ async function handleSubmit(e) {
         submitInProgress = false;
         clearTimeout(timeoutId);
         submitBtn.disabled = false;
-        clearChatBtn.disabled = false;
         questionInput.focus();
     }
 }
@@ -1261,6 +1309,35 @@ function addClass(el, className) {
     }
 }
 
+function toggleMobileMenu(toggleBtn) {
+    const sidebar = typeof document.querySelector === 'function'
+        ? document.querySelector('.sidebar')
+        : null;
+    if (!sidebar) return;
+    const isOpen = !new RegExp('\\bmobile-menu-open\\b').test(sidebar.className || '');
+    if (isOpen) {
+        addClass(sidebar, 'mobile-menu-open');
+    } else {
+        removeClass(sidebar, 'mobile-menu-open');
+    }
+    if (toggleBtn && typeof toggleBtn.setAttribute === 'function') {
+        toggleBtn.setAttribute('aria-expanded', String(isOpen));
+    }
+}
+
+function closeMobileMenu() {
+    const sidebar = typeof document.querySelector === 'function'
+        ? document.querySelector('.sidebar')
+        : null;
+    if (sidebar) removeClass(sidebar, 'mobile-menu-open');
+    const toggleBtn = typeof document.querySelector === 'function'
+        ? document.querySelector('.mobile-menu-toggle')
+        : null;
+    if (toggleBtn && typeof toggleBtn.setAttribute === 'function') {
+        toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+}
+
 function navigate(name, btnEl) {
     if (typeof document.querySelectorAll !== 'function') return;
     const sections = document.querySelectorAll('[data-section]');
@@ -1272,6 +1349,13 @@ function navigate(name, btnEl) {
         : null;
     if (target) {
         addClass(target, 'section-active');
+        if (typeof target.focus === 'function') {
+            target.focus({ preventScroll: true });
+        }
+        const contentInner = target.parentNode;
+        if (contentInner && typeof contentInner.scrollTop === 'number') {
+            contentInner.scrollTop = 0;
+        }
     }
     const buttons = document.querySelectorAll('.nav-btn');
     for (let i = 0; i < buttons.length; i++) {
@@ -1280,6 +1364,7 @@ function navigate(name, btnEl) {
     if (btnEl) {
         addClass(btnEl, 'active');
     }
+    closeMobileMenu();
 }
 
 if (typeof window !== 'undefined' && typeof setInterval === 'function') {
@@ -1330,15 +1415,6 @@ chatContainer.addEventListener('click', function(e) {
     }
 });
 
-/* Clear Chat Button */
-if (clearChatBtn) {
-    clearChatBtn.addEventListener('click', function() {
-        if (submitInProgress) return;
-        chatContainer.innerHTML = '';
-        questionInput.value = '';
-        questionInput.focus();
-    });
-}
 </script>
 </body>
 </html>
