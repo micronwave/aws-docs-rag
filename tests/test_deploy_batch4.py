@@ -162,6 +162,9 @@ class FakeAPIGW:
     def update_stage(self, **kwargs):
         self.calls.append(("update_stage", kwargs))
 
+    def update_rest_api(self, **kwargs):
+        self.calls.append(("update_rest_api", kwargs))
+
 
 class FakeS3:
     def __init__(self, *, head_error=None):
@@ -193,6 +196,8 @@ class FakeCloudFront:
     def __init__(self):
         self.calls = []
         self.origin_access_controls = []
+        self.response_headers_policies = []
+        self.response_headers_policy_configs = {}
         self.distributions = []
         self.distribution_config = {
             "Origins": {"Items": [{
@@ -210,6 +215,25 @@ class FakeCloudFront:
     def create_origin_access_control(self, **kwargs):
         self.calls.append(("create_origin_access_control", kwargs))
         return {"OriginAccessControl": {"Id": "oac-new"}}
+
+    def list_response_headers_policies(self, **kwargs):
+        self.calls.append(("list_response_headers_policies", kwargs))
+        return {
+            "ResponseHeadersPolicyList": {
+                "Items": self.response_headers_policies,
+            }
+        }
+
+    def get_response_headers_policy_config(self, **kwargs):
+        self.calls.append(("get_response_headers_policy_config", kwargs))
+        return self.response_headers_policy_configs[kwargs["Id"]]
+
+    def update_response_headers_policy(self, **kwargs):
+        self.calls.append(("update_response_headers_policy", kwargs))
+
+    def create_response_headers_policy(self, **kwargs):
+        self.calls.append(("create_response_headers_policy", kwargs))
+        return {"ResponseHeadersPolicy": {"Id": "rhp-new"}}
 
     def get_paginator(self, name):
         self.calls.append(("get_paginator", {"name": name}))
@@ -403,7 +427,11 @@ def test_package_lambda_includes_handler_and_installed_dependencies(monkeypatch)
         assert "orjson/__init__.py" in names
         assert "pinecone/__init__.py" in names
         assert "typing_extensions.py" in names
-        assert any("typing-extensions" in args for args in install_calls)
+        install_args = install_calls[0]
+        assert install_args[:4] == [sys.executable, "-m", "pip", "install"]
+        assert "-r" in install_args
+        requirements_path = Path(install_args[install_args.index("-r") + 1])
+        assert requirements_path == ROOT / "requirements.lambda.txt"
     finally:
         shutil.rmtree(artifacts_dir, ignore_errors=True)
 
@@ -587,6 +615,70 @@ def test_deploy_api_restores_post_throttling_without_api_key(api_module):
     assert operations["/~1query/POST/throttling/burstLimit"] == "10"
 
 
+def test_fetch_cloudfront_origin_cidrs_validates_and_deduplicates(monkeypatch, api_module):
+    payload = json.dumps({
+        "prefixes": [
+            {"service": "CLOUDFRONT_ORIGIN_FACING", "ip_prefix": "203.0.113.0/24"},
+            {"service": "CLOUDFRONT_ORIGIN_FACING", "ip_prefix": "203.0.113.0/24"},
+            {"service": "CLOUDFRONT", "ip_prefix": "198.51.100.0/24"},
+        ]
+    }).encode("utf-8")
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return payload
+
+    monkeypatch.setattr(api_module.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+
+    assert api_module.fetch_cloudfront_origin_cidrs() == ["203.0.113.0/24"]
+
+
+def test_fetch_cloudfront_origin_cidrs_rejects_empty_service_list(monkeypatch, api_module):
+    payload = json.dumps({"prefixes": []}).encode("utf-8")
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return payload
+
+    monkeypatch.setattr(api_module.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+
+    with pytest.raises(RuntimeError, match="no CloudFront origin-facing"):
+        api_module.fetch_cloudfront_origin_cidrs()
+
+
+def test_apply_resource_policy_sends_raw_json_and_exact_api_resource(monkeypatch, api_module):
+    monkeypatch.setattr(
+        api_module,
+        "fetch_cloudfront_origin_cidrs",
+        lambda: ["203.0.113.0/24"],
+    )
+
+    api_module.apply_resource_policy("api-id")
+
+    update_call = next(
+        kwargs for name, kwargs in api_module._test_apigw.calls if name == "update_rest_api"
+    )
+    value = update_call["patchOperations"][0]["value"]
+    assert value.startswith("{")
+    policy = json.loads(value)
+    assert policy["Statement"][0]["Resource"].endswith(":api-id/*/*/*")
+    assert policy["Statement"][0]["Condition"]["NotIpAddress"]["aws:SourceIp"] == [
+        "203.0.113.0/24"
+    ]
+
+
 def test_create_frontend_bucket_creates_or_reuses_bucket_and_sets_website_and_public_access_block(frontend_module):
     frontend_module.create_frontend_bucket()
 
@@ -683,6 +775,61 @@ def test_ensure_api_cache_behavior_uses_exact_query_path(monkeypatch):
     assert behavior["GrpcConfig"] == {"Enabled": False}
     assert behavior["ForwardedValues"]["Headers"] == {"Quantity": 0}
     assert behavior["ForwardedValues"]["QueryStringCacheKeys"] == {"Quantity": 0}
+    assert behavior["AllowedMethods"]["Quantity"] == 7
+    assert behavior["AllowedMethods"]["Items"] == [
+        "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"
+    ]
+
+
+def test_get_or_create_response_headers_policy_creates_hardened_policy(monkeypatch):
+    cf = FakeCloudFront()
+    module = load_script(
+        monkeypatch,
+        "deploy_frontend_headers_create_test",
+        "scripts/08_deploy_frontend.py",
+        boto3_client_map={"sts": FakeSTS(), "s3": FakeS3(), "cloudfront": cf},
+    )
+
+    assert module.get_or_create_response_headers_policy() == "rhp-new"
+    create_call = next(
+        kwargs for name, kwargs in cf.calls if name == "create_response_headers_policy"
+    )
+    csp = create_call["ResponseHeadersPolicyConfig"]["SecurityHeadersConfig"][
+        "ContentSecurityPolicy"
+    ]["ContentSecurityPolicy"]
+    assert "base-uri 'none'" in csp
+    assert "object-src 'none'" in csp
+    assert "form-action 'none'" in csp
+
+
+def test_get_or_create_response_headers_policy_reconciles_existing_policy(monkeypatch):
+    cf = FakeCloudFront()
+    cf.response_headers_policies = [{
+        "ResponseHeadersPolicy": {
+            "Id": "rhp-existing",
+            "ResponseHeadersPolicyConfig": {"Name": "aws-rag-security-headers"},
+        }
+    }]
+    cf.response_headers_policy_configs["rhp-existing"] = {
+        "ETag": "etag-rhp",
+        "ResponseHeadersPolicyConfig": {
+            "Name": "aws-rag-security-headers",
+            "Comment": "stale",
+        },
+    }
+    module = load_script(
+        monkeypatch,
+        "deploy_frontend_headers_update_test",
+        "scripts/08_deploy_frontend.py",
+        boto3_client_map={"sts": FakeSTS(), "s3": FakeS3(), "cloudfront": cf},
+    )
+
+    assert module.get_or_create_response_headers_policy() == "rhp-existing"
+    update_call = next(
+        kwargs for name, kwargs in cf.calls if name == "update_response_headers_policy"
+    )
+    assert update_call["IfMatch"] == "etag-rhp"
+    assert update_call["ResponseHeadersPolicyConfig"] == module.build_response_headers_policy_config()
 
 
 def test_get_or_create_oac_returns_existing_oac(monkeypatch):
@@ -799,6 +946,7 @@ def test_create_cloudfront_distribution_creates_new_distribution_and_returns_arn
     assert any(name == "create_distribution" for name, _kwargs in cf.calls)
     create_call = next(kwargs for name, kwargs in cf.calls if name == "create_distribution")
     assert create_call["DistributionConfig"]["Origins"]["Quantity"] == 2
+    assert create_call["DistributionConfig"]["DefaultCacheBehavior"]["ResponseHeadersPolicyId"] == "rhp-new"
 
 
 def test_main_sets_bucket_policy_using_distribution_arn(monkeypatch, capsys):

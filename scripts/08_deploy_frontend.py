@@ -154,7 +154,7 @@ def ensure_api_cache_behavior(dist_config: dict) -> bool:
                 changed = True
             desired_methods = {
                 "Quantity": 7,
-                "Items": ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
+                "Items": ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"],
                 "CachedMethods": {"Quantity": 2, "Items": ["GET", "HEAD"]},
             }
             if item.get("AllowedMethods") != desired_methods:
@@ -200,7 +200,7 @@ def ensure_api_cache_behavior(dist_config: dict) -> bool:
         "ViewerProtocolPolicy": "redirect-to-https",
         "AllowedMethods": {
             "Quantity": 7,
-            "Items": ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
+            "Items": ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"],
             "CachedMethods": {"Quantity": 2, "Items": ["GET", "HEAD"]},
         },
         "ForwardedValues": {
@@ -223,6 +223,87 @@ def ensure_api_cache_behavior(dist_config: dict) -> bool:
     })
     cache_behaviors["Quantity"] = len(items)
     return True
+
+
+def build_response_headers_policy_config() -> dict:
+    """Return the required CloudFront security response headers policy."""
+    return {
+        "Name": "aws-rag-security-headers",
+        "Comment": "Security headers for aws-rag frontend",
+        "SecurityHeadersConfig": {
+            "StrictTransportSecurity": {
+                "Override": True,
+                "AccessControlMaxAgeSec": 63072000,
+                "IncludeSubdomains": True,
+                "Preload": False,
+            },
+            "ContentTypeOptions": {"Override": True},
+            "FrameOptions": {"FrameOption": "DENY", "Override": True},
+            "ReferrerPolicy": {
+                "ReferrerPolicy": "strict-origin-when-cross-origin",
+                "Override": True,
+            },
+            "XSSProtection": {
+                "Protection": True,
+                "ModeBlock": True,
+                "Override": True,
+            },
+            "ContentSecurityPolicy": {
+                "ContentSecurityPolicy": (
+                    "default-src 'self'; "
+                    "base-uri 'none'; "
+                    "object-src 'none'; "
+                    "form-action 'none'; "
+                    "script-src 'self' 'unsafe-inline'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' data:; "
+                    "connect-src 'self'; "
+                    "frame-ancestors 'none'"
+                ),
+                "Override": True,
+            },
+        },
+    }
+
+
+def get_or_create_response_headers_policy() -> str:
+    """Create the security header policy or reconcile an existing policy."""
+    desired_config = build_response_headers_policy_config()
+    policy_name = desired_config["Name"]
+
+    # Paginate through custom policies to find an existing one by name
+    marker = None
+    while True:
+        kwargs: dict = {"Type": "custom"}
+        if marker:
+            kwargs["Marker"] = marker
+        page = cf.list_response_headers_policies(**kwargs)
+        policy_list = page.get("ResponseHeadersPolicyList", {})
+        for item in policy_list.get("Items", []):
+            config = item.get("ResponseHeadersPolicy", {}).get("ResponseHeadersPolicyConfig", {})
+            if config.get("Name") == policy_name:
+                policy_id = item["ResponseHeadersPolicy"]["Id"]
+                existing = cf.get_response_headers_policy_config(Id=policy_id)
+                if existing["ResponseHeadersPolicyConfig"] != desired_config:
+                    cf.update_response_headers_policy(
+                        Id=policy_id,
+                        IfMatch=existing["ETag"],
+                        ResponseHeadersPolicyConfig=desired_config,
+                    )
+                    print(f"  [OK] Updated response headers policy: {policy_id}")
+                else:
+                    print(f"  Response headers policy already current: {policy_id}")
+                return policy_id
+        marker = policy_list.get("NextMarker")
+        if not marker:
+            break
+
+    resp = cf.create_response_headers_policy(
+        ResponseHeadersPolicyConfig=desired_config
+    )
+    policy_id = resp["ResponseHeadersPolicy"]["Id"]
+    print(f"  [OK] Created response headers policy: {policy_id}")
+    return policy_id
 
 
 def get_or_create_oac() -> str:
@@ -260,6 +341,7 @@ def create_cloudfront_distribution(api_endpoint: str) -> tuple[str, str]:
     """
     s3_origin_domain = f"{FRONTEND_BUCKET}.s3.{REGION}.amazonaws.com"
     oac_id = get_or_create_oac()
+    rhp_id = get_or_create_response_headers_policy()
     api_origin = build_api_origin(api_endpoint)
 
     # Check if distribution already exists for this bucket
@@ -335,6 +417,12 @@ def create_cloudfront_distribution(api_endpoint: str) -> tuple[str, str]:
                     if ensure_api_cache_behavior(dist_config):
                         changed = True
 
+                    # Enforce security response headers on the default (HTML) behavior
+                    default_behavior = dist_config.setdefault("DefaultCacheBehavior", {})
+                    if default_behavior.get("ResponseHeadersPolicyId") != rhp_id:
+                        default_behavior["ResponseHeadersPolicyId"] = rhp_id
+                        changed = True
+
                     if changed:
                         print(f"  Updating distribution {dist_id} to enforce OAC and /query proxy...")
                         cf.update_distribution(
@@ -367,6 +455,7 @@ def create_cloudfront_distribution(api_endpoint: str) -> tuple[str, str]:
                 "DefaultTTL": 86400,
                 "MaxTTL": 31536000,
                 "Compress": True,
+                "ResponseHeadersPolicyId": rhp_id,
             },
             "Origins": {
                 "Quantity": 2,
@@ -387,7 +476,7 @@ def create_cloudfront_distribution(api_endpoint: str) -> tuple[str, str]:
                     "ViewerProtocolPolicy": "redirect-to-https",
                     "AllowedMethods": {
                         "Quantity": 7,
-                        "Items": ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
+                        "Items": ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"],
                         "CachedMethods": {"Quantity": 2, "Items": ["GET", "HEAD"]},
                     },
                     "ForwardedValues": {
