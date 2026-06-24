@@ -163,28 +163,15 @@ def package_lambda() -> str:
 
     os.makedirs(build_dir)
 
-    # Install orjson first (needs Linux binary)
-    subprocess.run(
-        [
-            "pip", "install",
-            "orjson",
-            "--platform", "manylinux2014_x86_64",
-            "--implementation", "cp",
-            "--python-version", "3.11",
-            "--only-binary=:all:",
-            "-t", build_dir,
-            "--quiet",
-            "--no-cache-dir",
-        ],
-        check=True,
-    )
+    reqs_file = os.path.join(os.path.dirname(SCRIPT_DIR), "requirements.lambda.txt")
+    if not os.path.exists(reqs_file):
+        raise FileNotFoundError(f"Missing pinned requirements file: {reqs_file}")
 
-    print("  Installing dependencies into build directory...")
+    print("  Installing pinned dependencies into build directory...")
     subprocess.run(
         [
-            "pip", "install",
-            "pinecone",
-            "typing-extensions",
+            sys.executable, "-m", "pip", "install",
+            "-r", reqs_file,
             "--platform", "manylinux2014_x86_64",
             "--implementation", "cp",
             "--python-version", "3.11",

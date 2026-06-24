@@ -1,0 +1,7 @@
+# Lambda runtime direct dependencies. Direct versions are pinned, while
+# transitive resolution remains subject to the package index at build time.
+# To regenerate with hashes (requires a Linux/Docker environment):
+#   pip-compile --generate-hashes requirements.lambda.txt -o requirements.lambda.lock
+orjson==3.11.9
+pinecone==9.1.0
+typing-extensions==4.15.0
