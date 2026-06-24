@@ -1,6 +1,9 @@
 import os
+import getpass
+import platform
 import re
 import secrets
+import subprocess
 from pathlib import Path
 
 
@@ -22,10 +25,26 @@ def get_origin_verify_header() -> str:
     return header
 
 
+def _set_file_permissions(path: Path) -> None:
+    """Restrict a file to the current user. Uses icacls on Windows; chmod elsewhere."""
+    if platform.system() == "Windows":
+        username = os.environ.get("USERNAME") or getpass.getuser()
+        if not username:
+            raise RuntimeError("Could not determine the current Windows user for secret ACLs")
+        subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:(F)"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    else:
+        os.chmod(path, 0o600)
+
+
 def _read_secret_file() -> str:
     if ORIGIN_VERIFY_SECRET_FILE.is_symlink():
         raise RuntimeError(f"Refusing to read symlinked secret file: {ORIGIN_VERIFY_SECRET_FILE}")
-    os.chmod(ORIGIN_VERIFY_SECRET_FILE, 0o600)
+    _set_file_permissions(ORIGIN_VERIFY_SECRET_FILE)
     return ORIGIN_VERIFY_SECRET_FILE.read_text(encoding="utf-8").strip()
 
 
@@ -51,4 +70,5 @@ def get_origin_verify_secret() -> str:
 
     with os.fdopen(fd, "w", encoding="utf-8") as secret_file:
         secret_file.write(secret)
+    _set_file_permissions(ORIGIN_VERIFY_SECRET_FILE)
     return secret
