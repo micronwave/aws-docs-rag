@@ -10,11 +10,9 @@ header that the Lambda validates.
 Run: python scripts/07_deploy_api_gateway.py
 """
 
-import ipaddress
 import json
 import os
 import sys
-import urllib.request
 import boto3
 from botocore.exceptions import ClientError
 
@@ -236,110 +234,41 @@ def deploy_api(api_id: str) -> str:
     return invoke_url
 
 
-def fetch_cloudfront_origin_cidrs() -> list[str]:
-    """Return CloudFront origin-facing IPv4 CIDR ranges from the AWS public IP list."""
-    req = urllib.request.Request(
-        "https://ip-ranges.amazonaws.com/ip-ranges.json",
-        headers={"User-Agent": "aws-rag-deploy/1.0"},
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-
-    cidrs = []
-    for entry in data.get("prefixes", []):
-        if entry.get("service") != "CLOUDFRONT_ORIGIN_FACING":
-            continue
-        prefix = entry.get("ip_prefix", "")
-        cidrs.append(str(ipaddress.IPv4Network(prefix)))
-
-    cidrs = sorted(set(cidrs))
-    if not cidrs:
-        raise RuntimeError("AWS IP ranges contained no CloudFront origin-facing IPv4 CIDRs")
-    return cidrs
-
-
-def apply_resource_policy(api_id: str) -> None:
-    """Restrict API Gateway to CloudFront origin-facing IPs only.
-
-    Uses a Deny+Allow pattern: deny all non-CloudFront source IPs, then
-    allow everything. The Deny overrides the Allow for non-CloudFront callers,
-    so direct calls to the API Gateway URL are rejected at the gateway level
-    before reaching the Lambda. The origin-verify secret in Lambda remains a
-    second gate for any CloudFront request.
-    """
-    cidrs = fetch_cloudfront_origin_cidrs()
-
-    resource_arn = f"arn:aws:execute-api:{REGION}:{ACCOUNT_ID}:{api_id}/*/*/*"
-    policy = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "DenyNonCloudFront",
-                "Effect": "Deny",
-                "Principal": "*",
-                "Action": "execute-api:Invoke",
-                "Resource": resource_arn,
-                "Condition": {
-                    "NotIpAddress": {"aws:SourceIp": cidrs},
-                },
-            },
-            {
-                "Sid": "AllowAll",
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": "execute-api:Invoke",
-                "Resource": resource_arn,
-            },
-        ],
-    }
-
-    policy_str = json.dumps(policy, separators=(",", ":"))
-    apigw.update_rest_api(
-        restApiId=api_id,
-        patchOperations=[{"op": "replace", "path": "/policy", "value": policy_str}],
-    )
-    print(f"  [OK] Resource policy applied: {len(cidrs)} CloudFront origin CIDRs allowed; all others denied")
-
-
 def main():
     print(f"\n{'='*60}")
     print(f"  Deploying API Gateway: {API_NAME}")
     print(f"{'='*60}")
 
     # Get Lambda ARN
-    print("\n[1/8] Getting Lambda function ARN...")
+    print("\n[1/7] Getting Lambda function ARN...")
     func = lambda_client.get_function(FunctionName=FUNCTION_NAME)
     lambda_arn = func["Configuration"]["FunctionArn"]
     print(f"  Lambda ARN: {lambda_arn}")
 
     # Create/get API
-    print("\n[2/8] Creating REST API...")
+    print("\n[2/7] Creating REST API...")
     api_id = get_or_create_api()
 
     # Create /query resource
-    print("\n[3/8] Creating /query resource...")
+    print("\n[3/7] Creating /query resource...")
     root_id = get_root_resource_id(api_id)
     query_resource_id = get_or_create_resource(api_id, root_id, "query")
 
     # Set up POST and OPTIONS methods
-    print("\n[4/8] Configuring methods...")
+    print("\n[4/7] Configuring methods...")
     setup_method(api_id, query_resource_id, "POST", lambda_arn, is_cors=False)
     setup_method(api_id, query_resource_id, "OPTIONS", lambda_arn, is_cors=True)
 
     # Grant API Gateway permission to invoke Lambda
-    print("\n[5/8] Granting permissions...")
+    print("\n[5/7] Granting permissions...")
     add_lambda_permission(api_id, lambda_arn)
 
     # Add CORS headers to gateway error responses (403, 429, etc.)
-    print("\n[6/8] Configuring gateway error responses...")
+    print("\n[6/7] Configuring gateway error responses...")
     setup_gateway_responses(api_id)
 
-    # Restrict API Gateway to CloudFront origin IPs only
-    print("\n[7/8] Applying CloudFront-only resource policy...")
-    apply_resource_policy(api_id)
-
-    # Deploy (resource policy changes take effect on next deployment)
-    print("\n[8/8] Deploying API...")
+    # Deploy
+    print("\n[7/7] Deploying API...")
     invoke_url = deploy_api(api_id)
 
     endpoint = f"{invoke_url}/query"
