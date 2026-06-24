@@ -51,12 +51,14 @@ class Node {
     this.rel = '';
     this.scrollTop = 0;
     this.scrollHeight = 0;
+    this.offsetTop = 0;
     this._text = '';
     this._html = '';
     this.parentNode = null;
     this._eventListeners = {};
   }
   appendChild(child) {
+    child.offsetTop = (this.children.length + 1) * 100;
     this.children.push(child);
     child.parentNode = this;
     return child;
@@ -120,6 +122,7 @@ const nodes = {
   'command-feedback': new Node('div'),
   'welcome': new Node('div'),
 };
+nodes['chat-container'].scrollHeight = 1000;
 
 const document = {
   getElementById(id) {
@@ -223,6 +226,7 @@ vm.runInContext(script, context);
     commandFeedbackText: nodes['command-feedback'].textContent,
     innerHTMLAssignments,
     removedNodes,
+    chatScrollTop: nodes['chat-container'].scrollTop,
   }));
 })().catch((err) => {
   process.stderr.write(err.stack || String(err));
@@ -522,9 +526,21 @@ def test_stage_scheduler_constants_defined():
 
 def test_css_loading_loop_removed_for_stage_scheduler():
     html = _read_html()
-    assert ".loading-stages span.stage-active{color:#FFCC00;border-color:#CC8800;box-shadow:0 0 5px rgba(255,204,0,.5);}" in html
+    assert ".loading-stages span.stage-active{color:#0d6278;font-weight:bold;}" in html
     assert "@keyframes loadingStage" not in html
     assert "animation:loadingStage" not in html
+
+
+def test_question_and_loading_states_do_not_use_black_containers():
+    html = _read_html()
+    user_styles = re.search(r"\.message\.user\{([^}]+)\}", html, re.S)
+    loading_styles = re.search(r"\.message\.loading\{([^}]+)\}", html, re.S)
+    assert user_styles is not None
+    assert loading_styles is not None
+    assert "background:transparent" in user_styles.group(1)
+    assert "background:transparent" in loading_styles.group(1)
+    assert "#0a0f14" not in user_styles.group(1)
+    assert "#0a0f14" not in loading_styles.group(1)
 
 
 def test_ask_lede_removed():
@@ -874,3 +890,22 @@ def test_source_score_not_displayed():
     texts = [n["textContent"] for n in all_nodes]
     assert not any("0.92" in t for t in texts), "score value should not appear in the UI"
     assert not any("score" in t.lower() for t in texts), "score label should not appear in the UI"
+
+def test_completed_answer_keeps_start_of_answer_visible():
+    result = _run_frontend_case(
+        {
+            "question": "Explain S3 in detail.",
+            "fetch": {
+                "kind": "resolve",
+                "ok": True,
+                "status": 200,
+                "contentType": "application/json",
+                "jsonValue": {
+                    "answer": "A long answer.",
+                    "sources": [],
+                },
+            },
+        }
+    )
+
+    assert result["chatScrollTop"] < 1000
