@@ -6,6 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML_PATH = ROOT / "frontend" / "index.html"
+JS_PATH = ROOT / "frontend" / "app.js"
+CSS_PATH = ROOT / "frontend" / "app.css"
 
 
 def _read_html() -> str:
@@ -13,10 +15,11 @@ def _read_html() -> str:
 
 
 def _extract_script() -> str:
-    html = _read_html()
-    match = re.search(r"<script>(.*)</script>", html, re.S)
-    assert match is not None
-    return match.group(1)
+    return JS_PATH.read_text(encoding="utf-8")
+
+
+def _read_css() -> str:
+    return CSS_PATH.read_text(encoding="utf-8")
 
 
 def _run_frontend_case(scenario: dict) -> dict:
@@ -525,16 +528,16 @@ def test_stage_scheduler_constants_defined():
 
 
 def test_css_loading_loop_removed_for_stage_scheduler():
-    html = _read_html()
-    assert ".loading-stages span.stage-active{color:#0d6278;font-weight:bold;}" in html
-    assert "@keyframes loadingStage" not in html
-    assert "animation:loadingStage" not in html
+    css = _read_css()
+    assert ".loading-stages span.stage-active{color:#0d6278;font-weight:bold;}" in css
+    assert "@keyframes loadingStage" not in css
+    assert "animation:loadingStage" not in css
 
 
 def test_question_and_loading_states_do_not_use_black_containers():
-    html = _read_html()
-    user_styles = re.search(r"\.message\.user\{([^}]+)\}", html, re.S)
-    loading_styles = re.search(r"\.message\.loading\{([^}]+)\}", html, re.S)
+    css = _read_css()
+    user_styles = re.search(r"\.message\.user\{([^}]+)\}", css, re.S)
+    loading_styles = re.search(r"\.message\.loading\{([^}]+)\}", css, re.S)
     assert user_styles is not None
     assert loading_styles is not None
     assert "background:transparent" in user_styles.group(1)
@@ -551,29 +554,33 @@ def test_ask_lede_removed():
 
 def test_clear_command_replaces_the_visible_button():
     html = _read_html()
+    script = _extract_script()
+    css = _read_css()
     assert 'id="clear-chat-btn"' not in html
-    assert "const clearChatBtn" not in html
-    assert "function isClearCommand(value)" in html
-    assert "padding:12px 8px 10px;" in html
-    assert "border-top:3px solid #CC8800;" in html
+    assert "const clearChatBtn" not in script
+    assert "function isClearCommand(value)" in script
+    assert "padding:12px 8px 10px;" in css
+    assert "border-top:3px solid #CC8800;" in css
 
 
 def test_clear_command_is_colored_project_gold_in_the_input():
-    html = _read_html()
-    assert ".form-input.command-input" in html
-    assert "color:#CC8800;" in html
-    assert "questionInput.addEventListener('input', syncCommandInputStyle);" in html
-    assert "addClass(questionInput, 'command-input');" in html
-    assert "removeClass(questionInput, 'command-input');" in html
-    assert "if (isClearCommand(question))" in html
+    css = _read_css()
+    script = _extract_script()
+    assert ".form-input.command-input" in css
+    assert "color:#CC8800;" in css
+    assert "questionInput.addEventListener('input', syncCommandInputStyle);" in script
+    assert "addClass(questionInput, 'command-input');" in script
+    assert "removeClass(questionInput, 'command-input');" in script
+    assert "if (isClearCommand(question))" in script
 
 def test_clear_command_shows_accessible_visual_feedback():
     html = _read_html()
+    script = _extract_script()
     assert 'id="command-feedback"' in html
     assert 'role="status"' in html
     assert 'aria-live="polite"' in html
-    assert "showCommandFeedback('Chat cleared')" in html
-    assert "1800" in html
+    assert "showCommandFeedback('Chat cleared')" in script
+    assert "1800" in script
 
 
 def test_clear_command_restores_the_welcome_without_calling_the_api():
@@ -597,24 +604,26 @@ def test_clear_command_restores_the_welcome_without_calling_the_api():
 
 
 def test_removed_header_and_marquee_css_is_not_retained():
-    html = _read_html()
-    assert ".status-pill" not in html
-    assert ".header-badges" not in html
-    assert ".marquee" not in html
-    assert ".marquee-text" not in html
+    content = _read_html() + _read_css()
+    assert ".status-pill" not in content
+    assert ".header-badges" not in content
+    assert ".marquee" not in content
+    assert ".marquee-text" not in content
 
 
 def test_initial_section_visibility_uses_active_section_model():
     html = _read_html()
+    css = _read_css()
     script = _extract_script()
-    normalized = re.sub(r"\s+", "", html)
+    normalized_html = re.sub(r"\s+", "", html)
+    normalized_css = re.sub(r"\s+", "", css)
 
-    assert '<divdata-section="ask"class="section-active"tabindex="-1">' in normalized
-    assert '<divdata-section="about"class="section-active">' not in normalized
-    assert '<divdata-section="architecture"class="section-active">' not in normalized
-    assert "[data-section]{display:none;}" in normalized
-    assert "[data-section].section-active{animation:sectionFade.2seaseforwards;}" in normalized
-    assert '[data-section="about"],[data-section="architecture"]{display:block;}' not in normalized
+    assert '<divdata-section="ask"class="section-active"tabindex="-1">' in normalized_html
+    assert '<divdata-section="about"class="section-active">' not in normalized_html
+    assert '<divdata-section="architecture"class="section-active">' not in normalized_html
+    assert "[data-section]{display:none;}" in normalized_css
+    assert "[data-section].section-active{animation:sectionFade.2seaseforwards;}" in normalized_css
+    assert '[data-section="about"],[data-section="architecture"]{display:block;}' not in normalized_css
     assert "section-active" in script
     assert "sections[i].style.display" not in script
     assert "target.style.display" not in script
@@ -708,10 +717,11 @@ def test_answer_actions_exist_without_sources():
 
 def test_static_template_invariants():
     html = _read_html()
-    assert html.count("%%API_ENDPOINT%%") == 1
+    script = _extract_script()
+    assert script.count("%%API_ENDPOINT%%") == 1
+    assert "%%API_KEY%%" not in script
     assert "%%API_KEY%%" not in html
-    assert len(re.findall(r"<script>", html)) == 1
-    assert len(re.findall(r"</script>", html)) == 1
+    assert len(re.findall(r"<script\b", html)) == 1
 
 
 def test_frontend_no_longer_ships_browser_api_key_header():

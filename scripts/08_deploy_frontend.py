@@ -70,14 +70,10 @@ def create_frontend_bucket() -> None:
 
 
 def upload_frontend(api_endpoint: str) -> None:
-    """Read index.html, inject same-origin API path, and upload to S3."""
+    """Read frontend files, inject API endpoint into app.js, and upload to S3."""
     print("  Reading frontend/index.html...")
     with open("frontend/index.html", "r", encoding="utf-8") as f:
         html = f.read()
-
-    # The browser should only call the same-origin CloudFront path.
-    html = html.replace("%%API_ENDPOINT%%", api_endpoint)
-    print(f"  Injected API endpoint: {api_endpoint}")
 
     s3.put_object(
         Bucket=FRONTEND_BUCKET,
@@ -87,6 +83,36 @@ def upload_frontend(api_endpoint: str) -> None:
         CacheControl="max-age=300, must-revalidate",
     )
     print(f"  [OK] Uploaded index.html to s3://{FRONTEND_BUCKET}/")
+
+    print("  Reading frontend/app.css...")
+    with open("frontend/app.css", "r", encoding="utf-8") as f:
+        css = f.read()
+
+    s3.put_object(
+        Bucket=FRONTEND_BUCKET,
+        Key="app.css",
+        Body=css.encode("utf-8"),
+        ContentType="text/css",
+        CacheControl="max-age=300, must-revalidate",
+    )
+    print(f"  [OK] Uploaded app.css to s3://{FRONTEND_BUCKET}/")
+
+    print("  Reading frontend/app.js...")
+    with open("frontend/app.js", "r", encoding="utf-8") as f:
+        js = f.read()
+
+    # Inject the same-origin CloudFront path as the API endpoint.
+    js = js.replace("%%API_ENDPOINT%%", api_endpoint)
+    print(f"  Injected API endpoint: {api_endpoint}")
+
+    s3.put_object(
+        Bucket=FRONTEND_BUCKET,
+        Key="app.js",
+        Body=js.encode("utf-8"),
+        ContentType="application/javascript",
+        CacheControl="max-age=300, must-revalidate",
+    )
+    print(f"  [OK] Uploaded app.js to s3://{FRONTEND_BUCKET}/")
 
 
 def parse_api_gateway_origin(api_endpoint: str) -> tuple[str, str]:
@@ -243,25 +269,47 @@ def build_response_headers_policy_config() -> dict:
                 "ReferrerPolicy": "strict-origin-when-cross-origin",
                 "Override": True,
             },
-            "XSSProtection": {
-                "Protection": True,
-                "ModeBlock": True,
-                "Override": True,
-            },
+            # X-XSS-Protection is deprecated and ignored by modern browsers;
+            # removing it avoids shipping a dead header.
             "ContentSecurityPolicy": {
                 "ContentSecurityPolicy": (
                     "default-src 'self'; "
                     "base-uri 'none'; "
                     "object-src 'none'; "
                     "form-action 'none'; "
-                    "script-src 'self' 'unsafe-inline'; "
-                    "style-src 'self' 'unsafe-inline'; "
+                    "script-src 'self'; "
+                    "style-src 'self'; "
                     "img-src 'self' data:; "
                     "connect-src 'self'; "
                     "frame-ancestors 'none'"
                 ),
                 "Override": True,
             },
+        },
+        # Custom headers not covered by SecurityHeadersConfig
+        "CustomHeadersConfig": {
+            "Quantity": 2,
+            "Items": [
+                {
+                    "Header": "Permissions-Policy",
+                    "Value": "camera=(), microphone=(), geolocation=(), payment=()",
+                    "Override": True,
+                },
+                {
+                    "Header": "Cross-Origin-Opener-Policy",
+                    "Value": "same-origin",
+                    "Override": True,
+                },
+            ],
+        },
+        # Strip AWS infrastructure disclosure headers from S3/CloudFront responses
+        "RemoveHeadersConfig": {
+            "Quantity": 3,
+            "Items": [
+                {"Header": "Server"},
+                {"Header": "x-amz-server-side-encryption"},
+                {"Header": "X-Amz-Cf-Pop"},
+            ],
         },
     }
 
