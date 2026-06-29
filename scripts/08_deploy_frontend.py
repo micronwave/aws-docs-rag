@@ -302,13 +302,13 @@ def build_response_headers_policy_config() -> dict:
                 },
             ],
         },
-        # Strip AWS infrastructure disclosure headers from S3/CloudFront responses
+        # Strip AWS infrastructure disclosure headers from S3 origin responses.
+        # X-Amz-Cf-Pop is CloudFront-internal and cannot be removed this way.
         "RemoveHeadersConfig": {
-            "Quantity": 3,
+            "Quantity": 2,
             "Items": [
                 {"Header": "Server"},
                 {"Header": "x-amz-server-side-encryption"},
-                {"Header": "X-Amz-Cf-Pop"},
             ],
         },
     }
